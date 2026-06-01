@@ -5,91 +5,98 @@ import logger from '../../utils/logger';
 import { getCredentials } from '../../config/credentials';
 import { getEnvironmentConfig } from '../../config/environments';
 
-// Fluxo real: Aurora → Keycloak (#username/#kc-login) → Microsoft (#i0116/#i0118/#idSIButton9) → MFA → Aurora
+// Fluxo real (verificado):
+//   Aurora → Keycloak (#username/#kc-login)
+//     ├─ Sessão SSO Keycloak viva → volta DIRETO para Aurora (sem MFA)
+//     └─ Sessão SSO morta → Microsoft (#i0116/#i0118) → MFA → Aurora
 const AUTH_FILE = path.join(process.cwd(), 'auth', 'storageState.json');
 
 setup('autenticar e salvar sessão', async ({ page }) => {
+  setup.setTimeout(180000); // acomoda MFA interativo
   const credentials = getCredentials();
   const envConfig = getEnvironmentConfig();
   const appHostname = new URL(envConfig.baseUrl).hostname;
+  const colaboradoresUrl = envConfig.baseUrl + '/colaboradores';
 
   fs.mkdirSync(path.dirname(AUTH_FILE), { recursive: true });
 
-  logger.info('=== SETUP: Iniciando autenticação ===');
+  // Helper: tabela visível = sessão genuinamente autenticada
+  const tabelaVisivel = async (timeout: number): Promise<boolean> => {
+    try {
+      await page.locator('tbody tr').first().waitFor({ state: 'visible', timeout });
+      return page.url().includes(appHostname);
+    } catch {
+      return false;
+    }
+  };
 
-  // ── Verificar se já há sessão válida (cookies do storageState) ───────────
-  await page.goto(envConfig.baseUrl);
+  const salvar = async (origem: string) => {
+    await page.context().storageState({ path: AUTH_FILE });
+    logger.info(`StorageState salvo (${origem}): ${AUTH_FILE}`);
+    logger.info('=== SETUP: Concluído ===');
+  };
+
+  logger.info('=== SETUP: Verificando sessão ===');
+  await page.goto(colaboradoresUrl);
   await page.waitForLoadState('load');
 
-  if (page.url().includes(appHostname)) {
-    logger.info('Sessão ainda válida — salvando storageState atualizado');
-    await page.context().storageState({ path: AUTH_FILE });
-    logger.info(`StorageState salvo: ${AUTH_FILE}`);
-    logger.info('=== SETUP: Concluído (sessão reutilizada) ===');
+  // 1) Sessão Aurora já válida?
+  if (await tabelaVisivel(15000)) {
+    logger.info('Sessão Aurora válida');
+    await salvar('sessão reutilizada');
     return;
   }
 
-  // ── Se redirecionou para Vercel login, não conseguimos autenticar automaticamente ─
-  if (page.url().includes('vercel.com/login')) {
-    throw new Error(
-      'Bloqueado pela Vercel Deployment Protection. ' +
-      'Execute o script manual de login (scripts/manual-login.ts) e salve o storageState, ' +
-      'ou configure VERCEL_BYPASS_SECRET no .env.'
-    );
-  }
-
-  // ── Step 1: Aurora → Keycloak ────────────────────────────────────────────
+  // 2) Caiu no Keycloak — preencher e-mail e Sign In
   if (!page.url().includes('keycloak')) {
-    await page.goto(envConfig.baseUrl);
-    await page.waitForURL(/keycloak/, { timeout: 30000 });
+    await page.goto(colaboradoresUrl);
   }
-  logger.info('Keycloak carregado');
-
   await page.locator('#username').waitFor({ state: 'visible', timeout: 15000 });
   await page.locator('#username').fill(credentials.email);
   await page.locator('#kc-login').click();
-  logger.info('[Keycloak] Sign In clicado');
+  logger.info('[Keycloak] Sign In clicado — aguardando SSO ou Microsoft');
 
-  // ── Step 2: Microsoft — e-mail ───────────────────────────────────────────
-  await page.waitForURL(/microsoftonline/, { timeout: 30000 });
-  logger.info('Microsoft login carregado');
+  // 3) Race: ou volta direto para Aurora (SSO Keycloak vivo) ou vai para Microsoft
+  await page.waitForURL(
+    url => url.hostname === appHostname || /microsoftonline/.test(url.href),
+    { timeout: 30000 }
+  );
 
+  // 3a) SSO Keycloak resolveu sozinho → tabela deve carregar
+  if (page.url().includes(appHostname)) {
+    logger.info('[Keycloak] SSO direto — sem MFA');
+    if (await tabelaVisivel(60000)) {
+      await salvar('SSO Keycloak');
+      return;
+    }
+    throw new Error('Voltou para Aurora mas a tabela não carregou.');
+  }
+
+  // 3b) Microsoft — fluxo completo com MFA
+  logger.info('[Microsoft] Re-autenticação completa necessária');
   await page.locator('#i0116').waitFor({ state: 'visible', timeout: 15000 });
   await page.locator('#i0116').fill(credentials.email);
   await page.locator('#idSIButton9').click();
   await page.waitForLoadState('load');
-  logger.info('[Microsoft] E-mail preenchido, Avançar clicado');
 
-  // ── Step 3: Microsoft — senha ────────────────────────────────────────────
   await page.locator('#i0118').waitFor({ state: 'visible', timeout: 15000 });
   await page.locator('#i0118').fill(credentials.password);
   await page.locator('#idSIButton9').click();
-  logger.info('[Microsoft] Senha preenchida, Entrar clicado');
-
-  // ── Step 4: Aguardar MFA e redirect para Aurora ──────────────────────────
-  // MFA via Microsoft Authenticator: aprovação manual necessária.
-  // Timeout de 120s para acomodar a interação do usuário.
-  logger.info('[MFA] Aguardando aprovação no Microsoft Authenticator (até 120s)...');
+  logger.info('[Microsoft] Senha enviada — aguardando MFA (até 120s)');
 
   await page.waitForURL(
     url => url.hostname === appHostname || url.href.includes('kmsi'),
     { timeout: 120000 }
   );
-
-  // ── Step 5: "Continuar conectado?" (opcional) ────────────────────────────
   if (!page.url().includes(appHostname)) {
-    logger.info('[Microsoft] Página "Continuar conectado?" – clicando Sim');
-    await page.locator('#idSIButton9').click();
+    await page.locator('#idSIButton9').click(); // "Continuar conectado?"
     await page.waitForURL(url => url.hostname === appHostname, { timeout: 30000 });
   }
 
-  logger.info(`Autenticado: ${page.url()}`);
-
-  // ── Step 6: Validar que estamos na Aurora ────────────────────────────────
-  await expect(page).toHaveURL(new RegExp(appHostname.replace(/\./g, '\\.')));
-
-  // ── Step 7: Salvar storageState ──────────────────────────────────────────
-  await page.context().storageState({ path: AUTH_FILE });
-  logger.info(`StorageState salvo: ${AUTH_FILE}`);
-  logger.info('=== SETUP: Concluído ===');
+  if (await tabelaVisivel(60000)) {
+    await expect(page).toHaveURL(new RegExp(appHostname.replace(/\./g, '\\.')));
+    await salvar('MFA completo');
+    return;
+  }
+  throw new Error('Autenticação concluída mas a tabela não carregou.');
 });
