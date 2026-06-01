@@ -17,7 +17,8 @@ export abstract class BasePage {
   }
 
   async waitForPageLoad(): Promise<void> {
-    await this.page.waitForLoadState('networkidle');
+    // 'networkidle' falha em SPAs com polling — usar 'load' como padrão
+    await this.page.waitForLoadState('load');
   }
 
   async getTitle(): Promise<string> {

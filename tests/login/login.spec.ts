@@ -29,7 +29,7 @@ test.describe('Login — Autenticação Aurora (Keycloak → Microsoft → MFA)'
     logger.info(`[${testInfo.title}] Iniciando`);
 
     await page.goto(envConfig.baseUrl);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
 
     // Deve estar na Aurora (sessão válida via storageState)
     await dashboardPage.validateSuccessfulLogin();
@@ -60,7 +60,7 @@ test.describe('Login — Autenticação Aurora (Keycloak → Microsoft → MFA)'
       `&response_type=code&scope=openid&prompt=login`;
 
     await page.goto(keycloakForceLoginUrl);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
 
     // Detectar onde estamos: Keycloak direto (com senha) ou Microsoft
     const currentUrl = page.url();
@@ -71,7 +71,7 @@ test.describe('Login — Autenticação Aurora (Keycloak → Microsoft → MFA)'
       await page.locator('#i0116').waitFor({ state: 'visible', timeout: 15000 });
       await page.locator('#i0116').fill(credentials.email);
       await page.locator('#idSIButton9').click();
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('load');
     }
 
     if (currentUrl.includes('keycloak') || page.url().includes('keycloak')) {

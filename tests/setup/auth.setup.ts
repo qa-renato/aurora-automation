@@ -19,7 +19,7 @@ setup('autenticar e salvar sessão', async ({ page }) => {
 
   // ── Verificar se já há sessão válida (cookies do storageState) ───────────
   await page.goto(envConfig.baseUrl);
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState('load');
 
   if (page.url().includes(appHostname)) {
     logger.info('Sessão ainda válida — salvando storageState atualizado');
@@ -57,7 +57,7 @@ setup('autenticar e salvar sessão', async ({ page }) => {
   await page.locator('#i0116').waitFor({ state: 'visible', timeout: 15000 });
   await page.locator('#i0116').fill(credentials.email);
   await page.locator('#idSIButton9').click();
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState('load');
   logger.info('[Microsoft] E-mail preenchido, Avançar clicado');
 
   // ── Step 3: Microsoft — senha ────────────────────────────────────────────

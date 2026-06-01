@@ -42,7 +42,7 @@ export class DashboardPage extends BasePage {
   // ─── Esperas ─────────────────────────────────────────────────────────────────
 
   async waitForDashboardLoad(): Promise<void> {
-    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForLoadState('load');
     await this.loadingOverlay.waitFor({ state: 'hidden' }).catch(() => {});
     logger.info('Dashboard carregado');
   }

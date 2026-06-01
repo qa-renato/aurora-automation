@@ -104,7 +104,7 @@ export class LoginPage extends BasePage {
     logger.info('[Microsoft] Clicando Avançar');
     await this.msSubmitButton.waitFor({ state: 'visible', timeout: 10000 });
     await this.msSubmitButton.click();
-    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForLoadState('load');
   }
 
   // ─── Step 3: Microsoft senha ──────────────────────────────────────────────────

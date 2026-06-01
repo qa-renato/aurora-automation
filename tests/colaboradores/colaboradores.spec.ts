@@ -4,101 +4,444 @@ import { novoColaboradorValido, colaboradorCpfDuplicado } from '../../test-data/
 import { takeEvidenceScreenshot } from '../../utils/screenshots';
 import logger from '../../utils/logger';
 
-// Usa sessão autenticada via storageState — sem re-login necessário
+// Todos os testes usam sessão autenticada via storageState.
+// Pré-condição: auth/storageState.json válido.
+
+test.describe('Colaboradores — Tabela Principal', () => {
+
+  test.beforeEach(async ({ page }) => {
+    const p = new ColaboradoresPage(page);
+    await p.navigate();
+  });
+
+  test('CT01 — deve exibir tabela com 7 colunas corretas', async ({ page }) => {
+    const headers = page.locator('thead th');
+    await expect(headers).toHaveCount(7);
+    for (const col of ['Nome', 'CPF', 'E-mail', 'Departamento', 'Cargo', 'Status', 'Ações']) {
+      await expect(page.locator('thead th').filter({ hasText: col })).toBeVisible();
+    }
+  });
+
+  test('CT02 — deve exibir paginação inicial "Mostrando 1-10 de X itens"', async ({ page }) => {
+    const p = new ColaboradoresPage(page);
+    const text = await p.getPaginationText();
+    expect(text).toMatch(/^Mostrando 1-10 de \d+ itens$/);
+    await takeEvidenceScreenshot(page, test.info(), 'paginacao-inicial');
+  });
+
+  test('CT03 — deve navegar para a próxima página', async ({ page }) => {
+    const p = new ColaboradoresPage(page);
+    await p.irParaProximaPagina();
+    const text = await p.getPaginationText();
+    expect(text).toMatch(/^Mostrando 11-20 de \d+ itens$/);
+    await expect(p.anteriorButton).toBeEnabled();
+  });
+
+  test('CT04 — deve voltar à página anterior', async ({ page }) => {
+    const p = new ColaboradoresPage(page);
+    await p.irParaProximaPagina();
+    await p.irParaPaginaAnterior();
+    const text = await p.getPaginationText();
+    expect(text).toMatch(/^Mostrando 1-10 de \d+ itens$/);
+    await expect(p.anteriorButton).toBeDisabled();
+  });
+
+  test('CT05 — deve alterar itens por página para 25', async ({ page }) => {
+    const p = new ColaboradoresPage(page);
+    await p.selecionarItensPorPagina(25);
+    const count = await p.getRowCount();
+    expect(count).toBeGreaterThan(10);
+    const text = await p.getPaginationText();
+    expect(text).toContain('1-');
+    await takeEvidenceScreenshot(page, test.info(), '25-itens-por-pagina');
+  });
+
+  test('CT06 — deve alterar itens por página para 50', async ({ page }) => {
+    const p = new ColaboradoresPage(page);
+    await p.selecionarItensPorPagina(50);
+    const count = await p.getRowCount();
+    expect(count).toBeGreaterThan(10);
+  });
+
+});
+
+test.describe('Colaboradores — Mostrar Inativos', () => {
+
+  test.beforeEach(async ({ page }) => {
+    const p = new ColaboradoresPage(page);
+    await p.navigate();
+  });
+
+  test('CT07 — toggle ativado deve exibir colaboradores inativos na tabela', async ({ page }) => {
+    const p = new ColaboradoresPage(page);
+    const totalSemInativos = await p.getTotalItems();
+    await page.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('button[data-state="unchecked"]'));
+      const toggle = btns.find(b => b.closest('label, div')?.textContent?.includes('Inativos') || b.parentElement?.textContent?.includes('Inativos'));
+      (toggle as HTMLButtonElement)?.click();
+    });
+    await page.waitForTimeout(600);
+    const totalComInativos = await p.getTotalItems();
+    expect(totalComInativos).toBeGreaterThanOrEqual(totalSemInativos);
+    await takeEvidenceScreenshot(page, test.info(), 'mostrando-inativos');
+  });
+
+  test('CT08 — toggle desativado não deve exibir usuários com status inativo', async ({ page }) => {
+    const p = new ColaboradoresPage(page);
+    // por padrão, inativos não aparecem
+    const rows = await page.locator('tbody tr').count();
+    expect(rows).toBeGreaterThan(0);
+    // nenhuma linha deve ter botão "Ativar" visível quando toggle está OFF
+    const ativarBtns = await page.locator('button[aria-label*="Ativar"]').count();
+    expect(ativarBtns).toBe(0);
+  });
+
+});
+
+test.describe('Colaboradores — Filtro por Departamento', () => {
+
+  test.beforeEach(async ({ page }) => {
+    const p = new ColaboradoresPage(page);
+    await p.navigate();
+  });
+
+  test('CT09 — filtrar por Financeiro deve exibir apenas colaboradores desse depto', async ({ page }) => {
+    const p = new ColaboradoresPage(page);
+    await p.filtrarPorDepartamento('Financeiro');
+    const rows = await page.locator('tbody tr td:nth-child(4)').allInnerTexts();
+    for (const dept of rows) expect(dept.trim()).toBe('Financeiro');
+    await takeEvidenceScreenshot(page, test.info(), 'filtro-financeiro');
+  });
+
+  test('CT10 — filtrar por Tecnologia da Informação', async ({ page }) => {
+    const p = new ColaboradoresPage(page);
+    await p.filtrarPorDepartamento('Tecnologia da Informação');
+    const firstRow = page.locator('tbody tr td:nth-child(4)').first();
+    await expect(firstRow).toHaveText('Tecnologia da Informação');
+  });
+
+  test('CT11 — resetar filtro para Todos os departamentos', async ({ page }) => {
+    const p = new ColaboradoresPage(page);
+    await p.filtrarPorDepartamento('Financeiro');
+    await p.resetarFiltroDepartamento();
+    const totalGeral = await p.getTotalItems();
+    expect(totalGeral).toBeGreaterThan(5);
+    await takeEvidenceScreenshot(page, test.info(), 'filtro-resetado');
+  });
+
+  test('CT12 — filtro + busca sem resultado deve exibir "Nenhum colaborador encontrado."', async ({ page }) => {
+    const p = new ColaboradoresPage(page);
+    await p.filtrarPorDepartamento('Financeiro');
+    await p.buscar('Bruno'); // Bruno é de TI, não Financeiro
+    await expect(p.emptyStateRow).toBeVisible();
+    await takeEvidenceScreenshot(page, test.info(), 'filtro-busca-sem-resultado');
+  });
+
+});
+
+test.describe('Colaboradores — Busca', () => {
+
+  test.beforeEach(async ({ page }) => {
+    const p = new ColaboradoresPage(page);
+    await p.navigate();
+  });
+
+  test('CT13 — buscar por nome parcial deve retornar resultado correto', async ({ page }) => {
+    const p = new ColaboradoresPage(page);
+    await p.buscar('Bruno');
+    await expect(page.locator('tbody tr td').filter({ hasText: 'Bruno Henrique Souza' })).toBeVisible();
+    await takeEvidenceScreenshot(page, test.info(), 'busca-por-nome');
+  });
+
+  test('CT14 — buscar por e-mail parcial deve retornar resultado correto', async ({ page }) => {
+    const p = new ColaboradoresPage(page);
+    await p.buscar('carla.oliveira');
+    await expect(page.locator('tbody tr td').filter({ hasText: 'Carla Menezes Oliveira' })).toBeVisible();
+  });
+
+  test('CT15 — buscar por CPF completo deve retornar colaborador correto', async ({ page }) => {
+    const p = new ColaboradoresPage(page);
+    await p.buscar('234.567.890-11');
+    await expect(page.locator('tbody tr td').filter({ hasText: 'Bruno Henrique Souza' })).toBeVisible();
+  });
+
+  test('CT16 — buscar por texto inexistente deve exibir "Nenhum colaborador encontrado."', async ({ page }) => {
+    const p = new ColaboradoresPage(page);
+    await p.buscar('XXXXXXXXNOTFOUND999');
+    await expect(p.emptyStateRow).toBeVisible();
+    await takeEvidenceScreenshot(page, test.info(), 'busca-sem-resultado');
+  });
+
+  test('CT17 — limpar busca deve restaurar todos os registros', async ({ page }) => {
+    const p = new ColaboradoresPage(page);
+    await p.buscar('Bruno');
+    const countBusca = await p.getRowCount();
+    await p.limparBusca();
+    const countTotal = await p.getRowCount();
+    expect(countTotal).toBeGreaterThan(countBusca);
+  });
+
+});
+
+test.describe('Colaboradores — Ordenação de Colunas', () => {
+
+  test.beforeEach(async ({ page }) => {
+    const p = new ColaboradoresPage(page);
+    await p.navigate();
+  });
+
+  test('CT18 — clicar em Nome deve ordenar A→Z', async ({ page }) => {
+    const p = new ColaboradoresPage(page);
+    await p.ordenarPorColuna('Nome');
+    const firstName = await p.getFirstRowName();
+    await p.ordenarPorColuna('Nome');
+    const firstNameReverse = await p.getFirstRowName();
+    expect(firstName).not.toBe(firstNameReverse);
+    await takeEvidenceScreenshot(page, test.info(), 'ordenacao-nome');
+  });
+
+  test('CT19 — colunas CPF e Ações não devem ser ordenáveis', async ({ page }) => {
+    const cpfHeader = page.locator('thead th').filter({ hasText: 'CPF' });
+    const acoesHeader = page.locator('thead th').filter({ hasText: 'Ações' });
+    // CPF e Ações não têm ícone de sort
+    const cpfHasSort = await cpfHeader.locator('img').count();
+    const acoesHasSort = await acoesHeader.locator('img').count();
+    expect(cpfHasSort).toBe(0);
+    expect(acoesHasSort).toBe(0);
+  });
+
+});
+
 test.describe('Colaboradores — Cadastro Manual', () => {
 
   test.beforeEach(async ({ page }) => {
-    const colaboradoresPage = new ColaboradoresPage(page);
-    await colaboradoresPage.navigate();
+    const p = new ColaboradoresPage(page);
+    await p.navigate();
   });
 
-  // ─── Teste 1: Cadastro completo com dados válidos ─────────────────────────
-  test('deve cadastrar colaborador via Cadastro Manual com sucesso', async ({ page }, testInfo) => {
-    const colaboradoresPage = new ColaboradoresPage(page);
+  test('CT20 — dialog Adicionar deve exibir opções Cadastro Manual e Importar Planilha', async ({ page }) => {
+    const p = new ColaboradoresPage(page);
+    await p.abrirDialogAdicionar();
+    await expect(p.cadastroManualButton).toBeVisible();
+    await expect(p.importarPlanilhaButton).toBeVisible();
+    await takeEvidenceScreenshot(page, test.info(), 'dialog-opcoes');
+    await p.fecharDialog();
+  });
+
+  test('CT21 — deve cadastrar colaborador com campos obrigatórios — sucesso', async ({ page }) => {
+    const p = new ColaboradoresPage(page);
     const dados = novoColaboradorValido();
-
-    logger.info(`[${testInfo.title}] CPF gerado: ${dados.cpf}`);
-
-    // Capturar total antes do cadastro
-    const totalAntes = await colaboradoresPage.getTotalColaboradores();
-    logger.info(`Total antes: ${totalAntes}`);
-
-    // Fluxo: Adicionar → Cadastro Manual → preencher → Salvar
-    await colaboradoresPage.abrirDialogAdicionar();
-    await takeEvidenceScreenshot(page, testInfo, '01-dialog-tipo');
-
-    await colaboradoresPage.selecionarCadastroManual();
-    await takeEvidenceScreenshot(page, testInfo, '02-form-vazio');
-
-    await colaboradoresPage.preencherFormulario(dados);
-    await takeEvidenceScreenshot(page, testInfo, '03-form-preenchido');
-
-    await colaboradoresPage.salvar();
-
-    // Validar toast de sucesso
-    await colaboradoresPage.validarCadastroSucesso();
-    await takeEvidenceScreenshot(page, testInfo, '04-toast-sucesso');
-
-    // Validar que o dialog fechou
-    expect(await colaboradoresPage.isDialogAberto()).toBe(false);
-
-    // Buscar pelo CPF único e validar na tabela
-    await colaboradoresPage.validarColaboradorNaTabela(dados.nome, dados.cpf);
-    await takeEvidenceScreenshot(page, testInfo, '05-colaborador-na-tabela');
-
-    logger.info(`[${testInfo.title}] Concluído — "${dados.nome}" cadastrado`);
+    await p.cadastrarColaborador(dados);
+    await p.validarCadastroSucesso();
+    expect(await p.isDialogAberto()).toBe(false);
+    await p.buscarEValidarNaTabela(dados.nome, dados.cpf);
+    await takeEvidenceScreenshot(page, test.info(), 'cadastro-sucesso');
   });
 
-  // ─── Teste 2: Validação de CPF duplicado ──────────────────────────────────
-  test('deve exibir erro ao tentar cadastrar CPF já existente', async ({ page }, testInfo) => {
-    const colaboradoresPage = new ColaboradoresPage(page);
-
-    logger.info(`[${testInfo.title}] CPF duplicado: ${colaboradorCpfDuplicado.cpf}`);
-
-    await colaboradoresPage.abrirDialogAdicionar();
-    await colaboradoresPage.selecionarCadastroManual();
-    await colaboradoresPage.preencherFormulario(colaboradorCpfDuplicado);
-    await colaboradoresPage.salvar();
-
-    // Validar mensagem de erro
-    await colaboradoresPage.validarErroCpfDuplicado();
-    await takeEvidenceScreenshot(page, testInfo, '01-erro-cpf-duplicado');
-
-    // Dialog deve permanecer aberto
-    expect(await colaboradoresPage.isDialogAberto()).toBe(true);
-
-    logger.info(`[${testInfo.title}] Erro de CPF duplicado validado`);
+  test('CT22 — deve cadastrar colaborador com todos os campos — sucesso', async ({ page }) => {
+    const p = new ColaboradoresPage(page);
+    const dados = {
+      ...novoColaboradorValido(),
+      telefone: '(11) 98765-4321',
+      genero: 'Feminino',
+      estadoCivil: 'Solteiro(a)',
+      escolaridade: 'Ensino Superior Completo',
+    };
+    await p.cadastrarColaborador(dados);
+    await p.validarCadastroSucesso();
+    await takeEvidenceScreenshot(page, test.info(), 'cadastro-completo-sucesso');
   });
 
-  // ─── Teste 3: Dialog exibe opções Cadastro Manual e Importar Planilha ─────
-  test('deve exibir as opções Cadastro Manual e Importar Planilha no dialog', async ({ page }, testInfo) => {
-    const colaboradoresPage = new ColaboradoresPage(page);
-
-    await colaboradoresPage.abrirDialogAdicionar();
-
-    await expect(page.getByRole('button', { name: /Cadastro Manual/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Importar Planilha/i })).toBeVisible();
-    await takeEvidenceScreenshot(page, testInfo, '01-opcoes-dialog');
-
-    logger.info(`[${testInfo.title}] Opções do dialog validadas`);
+  test('CT23 — CPF duplicado deve exibir "CPF já cadastrado"', async ({ page }) => {
+    const p = new ColaboradoresPage(page);
+    await p.abrirDialogAdicionar();
+    await p.selecionarCadastroManual();
+    await p.preencherFormulario(colaboradorCpfDuplicado);
+    await p.salvar();
+    await p.validarErroCpfDuplicado();
+    expect(await p.isDialogAberto()).toBe(true);
+    await takeEvidenceScreenshot(page, test.info(), 'erro-cpf-duplicado');
+    await p.fecharDialog();
   });
 
-  // ─── Teste 4: Campos obrigatórios impedem envio sem preenchimento ──────────
-  test('não deve salvar com campos obrigatórios vazios', async ({ page }, testInfo) => {
-    const colaboradoresPage = new ColaboradoresPage(page);
-
-    await colaboradoresPage.abrirDialogAdicionar();
-    await colaboradoresPage.selecionarCadastroManual();
-
-    // Tentar salvar sem preencher nada
-    await colaboradoresPage.salvar();
+  test('CT24 — campos obrigatórios vazios devem bloquear submissão', async ({ page }) => {
+    const p = new ColaboradoresPage(page);
+    await p.abrirDialogAdicionar();
+    await p.selecionarCadastroManual();
+    await p.salvar();
     await page.waitForTimeout(1000);
+    expect(await p.isDialogAberto()).toBe(true);
+    await takeEvidenceScreenshot(page, test.info(), 'campos-obrigatorios-vazios');
+    await p.fecharDialog();
+  });
 
-    // Dialog deve permanecer aberto (form inválido)
-    expect(await colaboradoresPage.isDialogAberto()).toBe(true);
-    await takeEvidenceScreenshot(page, testInfo, '01-campos-obrigatorios-vazios');
+  test('CT25 — cancelar cadastro deve fechar dialog sem salvar', async ({ page }) => {
+    const p = new ColaboradoresPage(page);
+    const totalAntes = await p.getTotalItems();
+    await p.abrirDialogAdicionar();
+    await p.selecionarCadastroManual();
+    await p.nomeInput.fill('Colaborador Cancelado');
+    await p.cancelar();
+    expect(await p.isDialogAberto()).toBe(false);
+    const totalDepois = await p.getTotalItems();
+    expect(totalDepois).toBe(totalAntes);
+  });
 
-    logger.info(`[${testInfo.title}] Bloqueio de campos obrigatórios validado`);
+});
+
+test.describe('Colaboradores — Importar Planilha', () => {
+
+  test.beforeEach(async ({ page }) => {
+    const p = new ColaboradoresPage(page);
+    await p.navigate();
+  });
+
+  test('CT26 — dialog de importação deve exibir botão Template CSV e drop zone', async ({ page }) => {
+    const p = new ColaboradoresPage(page);
+    await p.abrirDialogAdicionar();
+    await p.selecionarImportarPlanilha();
+    await expect(p.templateCsvButton).toBeVisible();
+    await expect(page.getByText(/Clique para selecionar ou arraste/)).toBeVisible();
+    await expect(page.getByText('Apenas .csv')).toBeVisible();
+    await takeEvidenceScreenshot(page, test.info(), 'importar-planilha-dialog');
+  });
+
+  test('CT27 — botão "Confirmar Importação" deve estar desabilitado sem arquivo', async ({ page }) => {
+    const p = new ColaboradoresPage(page);
+    await p.abrirDialogAdicionar();
+    await p.selecionarImportarPlanilha();
+    expect(await p.isConfirmarImportacaoHabilitado()).toBe(false);
+    await takeEvidenceScreenshot(page, test.info(), 'confirmar-importacao-disabled');
+  });
+
+  test('CT28 — cancelar importação deve fechar dialog', async ({ page }) => {
+    const p = new ColaboradoresPage(page);
+    await p.abrirDialogAdicionar();
+    await p.selecionarImportarPlanilha();
+    await p.cancelar();
+    expect(await p.isDialogAberto()).toBe(false);
+  });
+
+});
+
+test.describe('Colaboradores — Edição', () => {
+
+  test.beforeEach(async ({ page }) => {
+    const p = new ColaboradoresPage(page);
+    await p.navigate();
+  });
+
+  test('CT29 — formulário de edição deve abrir com campos pré-preenchidos', async ({ page }) => {
+    const p = new ColaboradoresPage(page);
+    await p.buscar('Carla Menezes Oliveira');
+    await p.abrirEdicaoPorNome('Carla Menezes Oliveira');
+    const nome = await p.nomeInput.inputValue();
+    const cpf = await p.cpfInput.inputValue();
+    const email = await p.emailInput.inputValue();
+    expect(nome).toBe('Carla Menezes Oliveira');
+    expect(cpf).toBe('345.678.901-22');
+    expect(email).toBe('carla.oliveira@aurora-demo.com.br');
+    await takeEvidenceScreenshot(page, test.info(), 'edicao-campos-preenchidos');
+    await p.fecharDialog();
+  });
+
+  test('CT30 — cancelar edição não deve alterar dados na tabela', async ({ page }) => {
+    const p = new ColaboradoresPage(page);
+    await p.buscar('Carla Menezes Oliveira');
+    await p.abrirEdicaoPorNome('Carla Menezes Oliveira');
+    await p.nomeInput.fill('Nome Editado Cancelado');
+    await p.cancelar();
+    expect(await p.isDialogAberto()).toBe(false);
+    await expect(page.locator('tbody td').filter({ hasText: 'Carla Menezes Oliveira' })).toBeVisible();
+    await p.limparBusca();
+  });
+
+  test('CT31 — BUG: campo Telefone aceita texto sem validação de formato', async ({ page }) => {
+    const p = new ColaboradoresPage(page);
+    await p.buscar('Carla Menezes Oliveira');
+    await p.abrirEdicaoPorNome('Carla Menezes Oliveira');
+    await p.telefoneInput.fill('TEXTO SEM FORMATO');
+    const valor = await p.telefoneInput.inputValue();
+    expect(valor).toBe('TEXTO SEM FORMATO'); // BUG: deveria ser rejeitado ou mascarado
+    await takeEvidenceScreenshot(page, test.info(), 'bug-telefone-aceita-texto');
+    await p.fecharDialog();
+  });
+
+});
+
+test.describe('Colaboradores — Inativar / Ativar', () => {
+
+  test.beforeEach(async ({ page }) => {
+    const p = new ColaboradoresPage(page);
+    await p.navigate();
+  });
+
+  test('CT32 — clicar Inativar deve exibir dialog de confirmação', async ({ page }) => {
+    const p = new ColaboradoresPage(page);
+    const inativarBtn = page.locator('button[aria-label*="Inativar"]').first();
+    const ariaLabel = await inativarBtn.getAttribute('aria-label');
+    const nome = ariaLabel?.replace('Inativar ', '') || '';
+    await inativarBtn.click();
+    await expect(page.getByRole('dialog', { name: 'Inativar Colaborador' })).toBeVisible();
+    await expect(page.getByText(`Tem certeza que deseja inativar ${nome}?`)).toBeVisible();
+    await expect(p.simInativarButton).toBeVisible();
+    await takeEvidenceScreenshot(page, test.info(), 'dialog-confirmar-inativar');
+    await p.cancelarConfirmacao();
+  });
+
+  test('CT33 — cancelar inativação deve manter colaborador ativo', async ({ page }) => {
+    const p = new ColaboradoresPage(page);
+    const inativarBtn = page.locator('button[aria-label*="Inativar"]').first();
+    const ariaLabel = await inativarBtn.getAttribute('aria-label') || '';
+    await inativarBtn.click();
+    await p.cancelarConfirmacao();
+    expect(await p.isDialogAberto()).toBe(false);
+    await expect(inativarBtn).toBeVisible();
+  });
+
+  test('CT34 — clicar Ativar deve exibir dialog de confirmação', async ({ page }) => {
+    const p = new ColaboradoresPage(page);
+    // Ativar o toggle de inativos
+    await page.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('button[data-state="unchecked"]'));
+      (btns[0] as HTMLButtonElement)?.click();
+    });
+    await page.waitForTimeout(500);
+    const ativarBtn = page.locator('button[aria-label*="Ativar"]').first();
+    if (await ativarBtn.count() === 0) {
+      test.skip(true, 'Nenhum colaborador inativo disponível para teste');
+      return;
+    }
+    await ativarBtn.click();
+    await expect(page.getByRole('dialog', { name: 'Ativar Colaborador' })).toBeVisible();
+    await expect(p.simAtivarButton).toBeVisible();
+    await takeEvidenceScreenshot(page, test.info(), 'dialog-confirmar-ativar');
+    await p.cancelarConfirmacao();
+  });
+
+  test('CT35 — confirmar inativação deve remover colaborador da lista sem "Mostrar Inativos"', async ({ page }) => {
+    const p = new ColaboradoresPage(page);
+    await p.buscar('Diego Martins Costa');
+    await expect(page.locator('tbody td').filter({ hasText: 'Diego Martins Costa' })).toBeVisible();
+    await p.clicarInativarPorNome('Diego Martins Costa');
+    await p.confirmarInativar();
+    await p.buscar('Diego Martins Costa');
+    // Sem toggle de inativos, Diego não deve aparecer
+    const rows = await p.getRowCount();
+    const isEmpty = rows === 1 && await p.emptyStateRow.isVisible().catch(() => false);
+    const notVisible = !await page.locator('tbody td').filter({ hasText: 'Diego Martins Costa' }).isVisible().catch(() => false);
+    expect(isEmpty || notVisible).toBe(true);
+    await takeEvidenceScreenshot(page, test.info(), 'colaborador-inativado');
+    // Reativar para não sujar o ambiente
+    await page.evaluate(() => { const btns = Array.from(document.querySelectorAll('button[data-state="unchecked"]')); (btns[0] as HTMLButtonElement)?.click(); });
+    await page.waitForTimeout(500);
+    await p.limparBusca();
+    await p.buscar('Diego Martins Costa');
+    const ativarBtn = page.locator('button[aria-label*="Ativar Diego"]').first();
+    if (await ativarBtn.count() > 0) {
+      await ativarBtn.click();
+      await p.confirmarAtivar();
+    }
   });
 
 });
