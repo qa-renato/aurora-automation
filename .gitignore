@@ -1,0 +1,29 @@
+node_modules/
+dist/
+
+# Credenciais e estado autenticado
+.env
+.env.local
+.env.*.local
+auth/storageState.json
+
+# Relatórios e evidências
+reports/html/
+reports/json/
+reports/test-results/
+reports/screenshots/
+reports/logs/
+
+# Playwright
+playwright/.cache/
+/test-results/
+/playwright-report/
+/blob-report/
+
+# MacOS
+.DS_Store
+
+# Editor
+.vscode/settings.json
+.idea/
+*.swp
