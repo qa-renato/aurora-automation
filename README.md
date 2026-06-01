@@ -1,6 +1,33 @@
 # Aurora — Automação de Testes
 
-Suite de testes automatizados para a plataforma **Aurora (InBot)**, construída com Playwright + TypeScript seguindo o padrão Page Object Model.
+Suite de testes automatizados para a plataforma **Aurora** (InBot), construída com **Playwright + TypeScript** seguindo o padrão **Page Object Model**.
+
+---
+
+## Stack
+
+| Ferramenta | Versão | Finalidade |
+|---|---|---|
+| [Playwright](https://playwright.dev) | ^1.44 | Framework de automação |
+| TypeScript | ^5.4 | Tipagem estática |
+| Winston | ^3.13 | Logging estruturado |
+| dotenv | ^16.4 | Gerenciamento de variáveis de ambiente |
+
+---
+
+## Fluxo de Autenticação
+
+A plataforma usa um fluxo de **3 etapas** validado via inspeção real do DOM:
+
+```
+Aurora (Vercel)
+  └─► Keycloak          → input#username + button#kc-login
+        └─► Microsoft   → input#i0116 (email) + input#i0118 (senha) + input#idSIButton9
+              └─► MFA   → Microsoft Authenticator (aprovação manual)
+                    └─► Aurora Dashboard ✓
+```
+
+> **Atenção:** O MFA via Microsoft Authenticator exige aprovação manual a cada nova sessão. Em CI/CD, o `storageState.json` deve ser gerado manualmente e armazenado como secret.
 
 ---
 
@@ -8,13 +35,15 @@ Suite de testes automatizados para a plataforma **Aurora (InBot)**, construída 
 
 - Node.js 18+
 - npm 9+
+- Acesso à conta `renato.paulino@inbot.com.br` + Microsoft Authenticator
 
 ---
 
 ## Instalação
 
 ```bash
-cd aurora
+git clone https://github.com/qa-renato/aurora-automation.git
+cd aurora-automation
 npm install
 npm run install:browsers
 ```
@@ -23,22 +52,30 @@ npm run install:browsers
 
 ## Configuração
 
-Copie o arquivo de exemplo e preencha as credenciais:
-
 ```bash
 cp .env.example .env
 ```
 
-Edite o `.env`:
-
 ```env
 AURORA_ENV=staging
 AURORA_BASE_URL=https://sandbox-inbot-aurora.vercel.app
-AURORA_EMAIL=seu-email@inbot.com.br
-AURORA_PASSWORD=SuaSenha@123
+AURORA_EMAIL=renato.paulino@inbot.com.br
+AURORA_PASSWORD=sua-senha-microsoft
 ```
 
-> **Nunca commite o arquivo `.env`** — ele está no `.gitignore`.
+> `.env` está no `.gitignore` — nunca commite credenciais.
+
+---
+
+## Primeiro uso — Gerar sessão autenticada
+
+Na primeira execução (ou quando a sessão expirar), é necessário gerar o `auth/storageState.json`:
+
+```bash
+npx playwright test tests/setup/auth.setup.ts --headed
+```
+
+Quando o browser abrir e o Microsoft pedir MFA, **aprove no Authenticator**. A sessão é salva automaticamente.
 
 ---
 
@@ -51,10 +88,10 @@ npm test
 
 ### Por módulo
 ```bash
-npm run test:login
-npm run test:campaigns
-npm run test:users
-npm run test:settings
+npm run test:login        # Fluxo de autenticação
+npm run test:campaigns    # Gestão de campanhas
+npm run test:users        # Gestão de usuários
+npm run test:settings     # Configurações do sistema
 ```
 
 ### Por navegador
@@ -64,19 +101,14 @@ npm run test:firefox
 npm run test:webkit
 ```
 
-### Com interface visual
+### Com browser visível
+```bash
+npm run test:headed
+```
+
+### Interface visual do Playwright
 ```bash
 npm run test:ui
-```
-
-### Modo debug
-```bash
-npm run test:debug
-```
-
-### Teste isolado
-```bash
-npx playwright test tests/login/login.spec.ts --project=chromium
 ```
 
 ### Relatório HTML
@@ -84,91 +116,117 @@ npx playwright test tests/login/login.spec.ts --project=chromium
 npm run test:report
 ```
 
+### Debug step-by-step
+```bash
+npm run test:debug
+```
+
 ---
 
-## Estrutura do Projeto
+## Estrutura
 
 ```
-aurora/
+aurora-automation/
 ├── tests/
 │   ├── setup/
-│   │   └── auth.setup.ts        # Autenticação global (executado uma vez)
+│   │   └── auth.setup.ts        # Autenticação global — reutiliza sessão ou re-autentica
 │   ├── login/
-│   │   └── login.spec.ts        # Testes do fluxo de login
-│   ├── campaigns/               # Testes de campanhas
-│   ├── users/                   # Testes de usuários
-│   └── settings/                # Testes de configurações
+│   │   └── login.spec.ts        # Sessão ativa, re-auth completa (MFA), dashboard
+│   ├── campaigns/
+│   ├── users/
+│   └── settings/
 │
 ├── pages/
-│   ├── BasePage.ts              # Classe base com métodos comuns
-│   ├── LoginPage.ts             # POM da página de login (Keycloak)
-│   └── DashboardPage.ts         # POM do painel principal
+│   ├── BasePage.ts              # Métodos comuns: navigate, waitFor, screenshot, retry
+│   ├── LoginPage.ts             # Keycloak + Microsoft SSO + MFA (seletores verificados)
+│   └── DashboardPage.ts         # Validação pós-login, elementos da Aurora
 │
 ├── fixtures/
-│   └── test-fixtures.ts         # Fixtures customizadas (extensão do test base)
+│   └── test-fixtures.ts         # loginPage, dashboardPage, authenticatedPage
 │
 ├── utils/
-│   ├── logger.ts                # Logger Winston (console + arquivo)
-│   ├── screenshots.ts           # Captura de evidências
-│   └── helpers.ts               # Funções utilitárias gerais
+│   ├── logger.ts                # Winston: console colorido + arquivo diário
+│   ├── screenshots.ts           # Evidências automáticas e manuais, anexadas ao report
+│   └── helpers.ts               # waitFor, retryAction, maskSensitiveData, formatDuration
 │
 ├── config/
-│   ├── environments.ts          # URLs e configurações por ambiente
-│   └── credentials.ts           # Leitura segura das credenciais do .env
+│   ├── environments.ts          # staging / production / development
+│   └── credentials.ts           # Leitura validada do .env
 │
 ├── test-data/
-│   └── users.ts                 # Dados de usuários para os testes
+│   └── users.ts                 # Usuários válidos e inválidos para testes
 │
-├── auth/                        # Estado autenticado (gitignored)
-│   └── storageState.json        # Sessão salva pelo auth.setup.ts
+├── auth/                        # ⚠️  gitignored — gerado pelo setup
+│   └── storageState.json
 │
-├── reports/                     # Saída dos testes (gitignored)
-│   ├── html/                    # Relatório HTML interativo
-│   ├── json/                    # Resultados em JSON
-│   ├── test-results/            # Traces, screenshots e vídeos
-│   ├── screenshots/             # Evidências manuais
-│   └── logs/                    # Logs de execução
+├── reports/                     # ⚠️  gitignored — gerado na execução
+│   ├── html/
+│   ├── screenshots/
+│   ├── logs/
+│   └── test-results/
 │
 ├── docs/
-│   ├── architecture.md          # Documentação da arquitetura
-│   ├── conventions.md           # Convenções de código
-│   └── execution-guide.md       # Guia detalhado de execução
+│   ├── architecture.md
+│   ├── conventions.md
+│   └── execution-guide.md
 │
 ├── playwright.config.ts
 ├── package.json
-├── tsconfig.json
-└── .env
+└── tsconfig.json
 ```
 
 ---
 
-## Boas Práticas
+## Seletores verificados (DOM real)
 
-1. **Nunca** use seletores XPath frágeis — prefira `data-testid`, `role`, `label`.
-2. **Nunca** hardcode credenciais no código — use variáveis de ambiente.
-3. Reutilize Page Objects para evitar duplicação de seletores.
-4. Use o `storageState` para evitar login em cada teste.
-5. Capture screenshots em pontos críticos do fluxo.
-
----
-
-## Autenticação e Reutilização de Sessão
-
-O projeto usa o mecanismo de **Project Setup** do Playwright:
-
-1. O projeto `setup` executa `auth.setup.ts` **uma única vez**
-2. O login é realizado e a sessão é salva em `auth/storageState.json`
-3. Todos os outros projetos (chromium, firefox, webkit) carregam essa sessão
-4. Testes de login sobrescrevem o storageState com `test.use({ storageState: { cookies: [], origins: [] } })`
+| Step | Domínio | Elemento | Seletor |
+|---|---|---|---|
+| 1 | Keycloak | Campo e-mail | `#username` |
+| 1 | Keycloak | Botão Sign In | `#kc-login` |
+| 2 | Microsoft | Campo e-mail | `#i0116` |
+| 2 | Microsoft | Botão Avançar | `#idSIButton9` |
+| 3 | Microsoft | Campo senha | `#i0118` |
+| 3 | Microsoft | Botão Entrar | `#idSIButton9` |
+| — | Keycloak | Erro de senha | `#input-error-password`, `.kc-feedback-text` |
 
 ---
 
-## MCP Playwright
+## Estratégia de Sessão
 
-Para inspeção de elementos em tempo real:
+O projeto usa o mecanismo de **Project Setup** do Playwright com detecção automática de sessão válida:
 
+```
+npm test
+  └─► [setup]    auth.setup.ts
+        ├─ Sessão válida?  → salva storageState atualizado (3s)
+        └─ Expirada?       → re-autentica via Keycloak → Microsoft → MFA
+  └─► [chromium] carrega storageState → testes iniciam autenticados
+  └─► [firefox]  idem
+  └─► [webkit]   idem
+```
+
+**Quando regenerar a sessão manualmente:**
 ```bash
-npx playwright codegen https://sandbox-inbot-aurora.vercel.app
+rm auth/storageState.json
+npx playwright test tests/setup/auth.setup.ts --headed
 ```
 
-Use o Playwright Inspector para descobrir seletores robustos e atualize os Page Objects conforme necessário.
+---
+
+## Riscos Conhecidos
+
+| Risco | Impacto | Mitigação |
+|---|---|---|
+| MFA obrigatório | Bloqueia CI/CD autônomo | Usar conta de serviço sem MFA ou Conditional Access |
+| Vercel Deployment Protection | Novos contextos bloqueados | `storageState.json` com cookies Vercel obrigatório |
+| Sessão Keycloak expira (~10h) | Setup falha | Regenerar `storageState.json` |
+| Seletores Microsoft mudam | Testes quebram | Validar com `npx playwright codegen` |
+
+---
+
+## Contribuindo
+
+1. Novos módulos → criar `tests/<módulo>/<módulo>.spec.ts` e `pages/<Modulo>Page.ts`
+2. Seletor quebrou → atualizar somente o Page Object da tela afetada
+3. Novo ambiente → adicionar entrada em `config/environments.ts`
+4. Seguir convenções em [`docs/conventions.md`](docs/conventions.md)
