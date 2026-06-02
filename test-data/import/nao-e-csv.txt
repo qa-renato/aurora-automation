@@ -1,0 +1,2 @@
+Este arquivo não é um CSV. Serve para validar que a importação rejeita
+extensões diferentes de .csv (campo input com accept=".csv").

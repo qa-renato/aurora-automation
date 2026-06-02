@@ -1,0 +1,3 @@
+nome,cpf,email,departamento,cargo,dataNascimento,telefone,escolaridade,estadoCivil,genero
+,cpf-invalido,email-sem-arroba,DeptoInexistente,,data-ruim,,,,
+So Nome,,,,,,,,,

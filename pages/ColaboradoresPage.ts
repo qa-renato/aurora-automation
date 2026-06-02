@@ -62,6 +62,11 @@ export class ColaboradoresPage extends BasePage {
   readonly templateCsvButton: Locator;
   readonly uploadDropzone: Locator;
   readonly confirmarImportacaoButton: Locator;
+  readonly fileInput: Locator;
+
+  // ─── Dialog (genérico) ────────────────────────────────────────────────────
+  readonly dialog: Locator;
+  readonly closeButton: Locator;
 
   // ─── Dialog confirmação Inativar/Ativar ───────────────────────────────────
   readonly simInativarButton: Locator;
@@ -118,6 +123,11 @@ export class ColaboradoresPage extends BasePage {
     this.templateCsvButton = page.getByRole('button', { name: /Template CSV/i });
     this.uploadDropzone = page.locator('dialog').locator('[cursor=pointer], [style*="cursor: pointer"], div.cursor-pointer').filter({ hasText: /arraste|selecionar/i });
     this.confirmarImportacaoButton = page.getByRole('button', { name: 'Confirmar Importação' });
+    this.fileInput = page.locator('input[type="file"]');
+
+    // Dialog genérico (Radix) + botão fechar (X)
+    this.dialog = page.locator('[role="dialog"]').first();
+    this.closeButton = page.getByRole('dialog').getByRole('button', { name: /close/i });
 
     // Confirmações
     this.simInativarButton = page.getByRole('button', { name: 'Sim, Inativar' });
@@ -138,7 +148,11 @@ export class ColaboradoresPage extends BasePage {
     // O SPA faz refresh de token via Keycloak SSO ao inicializar.
     // O ciclo completo: goto → SPA init → redirect Keycloak → redirect Aurora → API → tabela.
     // Aguardamos a tabela diretamente com timeout generoso para acomodar todo o ciclo (~15s típico).
-    await this.page.locator('tbody tr').first().waitFor({ state: 'visible', timeout: 60000 });
+    // Espera a tabela com DADOS reais. O botão de ação (aria-label) da 1ª linha
+    // só existe quando os dados carregaram — evita ler estados transitórios
+    // (skeleton/empty) sob lentidão do sandbox. Wait único dentro do test timeout.
+    await this.page.locator('tbody button[aria-label]').first()
+      .waitFor({ state: 'visible', timeout: 60000 });
     logger.info(`Colaboradores carregados em: ${this.page.url()}`);
   }
 
@@ -226,6 +240,9 @@ export class ColaboradoresPage extends BasePage {
     logger.info(`Ordenando por: ${coluna}`);
     await this.page.locator('thead th').filter({ hasText: coluna }).click();
     await this.page.waitForTimeout(400);
+    // aguarda os dados re-renderizarem após a reordenação (evita leitura vazia)
+    await this.page.locator('tbody button[aria-label]').first()
+      .waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
   }
 
   async getFirstRowName(): Promise<string> {
@@ -438,5 +455,80 @@ export class ColaboradoresPage extends BasePage {
     }
     await this.setMostrarInativos(false);
     await this.limparBusca();
+  }
+
+  // ─── Edição (salvar) ────────────────────────────────────────────────────────
+
+  async validarEdicaoSucesso(): Promise<void> {
+    await this.page.getByText('Colaborador atualizado com sucesso.').first()
+      .waitFor({ state: 'visible', timeout: 10000 });
+    await this.aguardarDialogFechar();
+    logger.info('Toast de atualização exibido');
+  }
+
+  // ─── Importação ─────────────────────────────────────────────────────────────
+
+  async abrirDialogImportar(): Promise<void> {
+    await this.abrirDialogAdicionar();
+    await this.selecionarImportarPlanilha();
+  }
+
+  /** Abre o dialog de importação e anexa o arquivo informado. */
+  async anexarArquivoImportacao(caminho: string): Promise<void> {
+    logger.info(`Anexando arquivo de importação: ${caminho}`);
+    await this.fileInput.setInputFiles(caminho);
+    await this.page.waitForTimeout(800);
+  }
+
+  async confirmarImportacao(): Promise<void> {
+    await this.confirmarImportacaoButton.click();
+    await this.page.waitForTimeout(1500);
+  }
+
+  /** Texto completo (normalizado) do dialog atual — útil p/ asserir mensagens. */
+  async getTextoDialog(): Promise<string> {
+    return (await this.dialog.innerText().catch(() => '')).replace(/\n+/g, ' ');
+  }
+
+  // ─── Tabela / colunas ───────────────────────────────────────────────────────
+
+  /** Lê os valores (texto) de uma coluna pelo índice (1-based). */
+  async getColunaValores(indice: number): Promise<string[]> {
+    const vals = await this.page.locator(`tbody tr td:nth-child(${indice})`).allInnerTexts();
+    return vals.map(v => v.trim());
+  }
+
+  /** Botão de status (toggle) da linha de um colaborador. */
+  statusToggle(nome: string): Locator {
+    return this.page.locator(`button[aria-label="Inativar ${nome}"], button[aria-label="Ativar ${nome}"]`).first();
+  }
+
+  /** Estado de ordenação (aria-sort) de uma coluna: 'none' | 'ascending' | 'descending' | null. */
+  async getAriaSort(coluna: string): Promise<string | null> {
+    return this.page.locator('thead th').filter({ hasText: coluna }).first().getAttribute('aria-sort');
+  }
+
+  /** Tipo de status de cada linha pela coluna 6: 'ativo' (botão Inativar) / 'inativo' (botão Ativar). */
+  async getStatusTipos(): Promise<string[]> {
+    return this.page.locator('tbody tr td:nth-child(6) button').evaluateAll(els =>
+      els.map(e => ((e.getAttribute('aria-label') || '').startsWith('Inativar') ? 'ativo' : 'inativo')));
+  }
+
+  // ─── Paginação ──────────────────────────────────────────────────────────────
+
+  async irParaUltimaPagina(): Promise<void> {
+    let guard = 0;
+    while (guard++ < 30) {
+      if (!(await this.proximaButton.isEnabled().catch(() => false))) break;
+      await this.proximaButton.click();
+      await this.page.waitForTimeout(350);
+    }
+  }
+
+  // ─── Dialog ─────────────────────────────────────────────────────────────────
+
+  async fecharViaX(): Promise<void> {
+    await this.closeButton.click();
+    await this.aguardarDialogFechar();
   }
 }
