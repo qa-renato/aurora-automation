@@ -1,6 +1,5 @@
-import { test, expect, request as pwRequest, APIRequestContext, Browser } from '@playwright/test';
-import * as path from 'path';
-import { getEnvironmentConfig } from '../../config/environments';
+import { test, expect, APIRequestContext } from '@playwright/test';
+import { criarApiContext } from './_apiAuth';
 
 // ─── RBAC / contrato de permissões (nível API) ──────────────────────────────
 // Verifica que TODA permissão de leitura concedida no `/me.capabilities` é
@@ -11,15 +10,6 @@ import { getEnvironmentConfig } from '../../config/environments';
 // `auditoria.read` no /me, mas `GET /auditoria` responde 403 "Acesso negado".
 // Esse cruzamento pega automaticamente qualquer caso desse tipo (capability
 // concedida × endpoint que nega).
-//
-// Auth: o app autentica a API (`aurora-api-sandbox.inbot.com.br`) com um token
-// Bearer obtido em runtime (não persistido). Capturamos o header `Authorization`
-// de uma requisição real do app autenticado e o reusamos via APIRequestContext.
-
-const AUTH_FILE = path.join(__dirname, '..', '..', 'auth', 'storageState.json');
-const APP_URL = getEnvironmentConfig().baseUrl;
-// host do backend Aurora (≠ apiUrl do config, que aponta p/ o /api do vercel)
-const API_BASE = 'https://aurora-api-sandbox.inbot.com.br';
 
 // Mapa permissão(read) → endpoint GET que ela habilita (verificado em 2026-06-12).
 type Regra = { cap: string; endpoint: string; bug?: string };
@@ -39,46 +29,12 @@ const REGRAS: Regra[] = [
   { cap: 'auditoria.read', endpoint: '/auditoria', bug: '#688' },
 ];
 
-/** Abre o app autenticado e captura o token Bearer + as capabilities do /me. */
-async function capturarAuth(browser: Browser): Promise<{ token: string; capabilities: string[] }> {
-  const ctx = await browser.newContext({ storageState: AUTH_FILE });
-  const page = await ctx.newPage();
-  let token = '';
-  let capabilities: string[] = [];
-  page.on('request', (r) => {
-    if (/aurora-api/i.test(r.url())) {
-      const h = r.headers()['authorization'];
-      if (h && !token) token = h;
-    }
-  });
-  page.on('response', async (r) => {
-    if (/\/me(\?|$)/i.test(r.url())) {
-      try {
-        const j = await r.json();
-        if (Array.isArray(j?.capabilities)) capabilities = j.capabilities;
-      } catch {
-        /* ignore */
-      }
-    }
-  });
-  await page.goto(APP_URL + '/', { waitUntil: 'load' });
-  await page.waitForTimeout(5000);
-  await ctx.close();
-  if (!token) throw new Error('Não foi possível capturar o token Bearer do app.');
-  return { token, capabilities };
-}
-
 test.describe('RBAC — permissões concedidas devem ser honradas pelos endpoints', () => {
   let api: APIRequestContext;
   let capabilities: string[] = [];
-  let token = '';
 
   test.beforeAll(async ({ browser }) => {
-    ({ token, capabilities } = await capturarAuth(browser));
-    api = await pwRequest.newContext({
-      baseURL: API_BASE,
-      extraHTTPHeaders: { Authorization: token },
-    });
+    ({ api, capabilities } = await criarApiContext(browser));
   });
 
   test.afterAll(async () => {
