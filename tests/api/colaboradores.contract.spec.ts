@@ -84,11 +84,11 @@ test.describe('Contrato de API — Colaboradores', () => {
     expect(j.data).toHaveLength(0);
   });
 
-  // BUG NOVO — o filtro ?ativo= retorna 0 para QUALQUER valor (true/false/1/0/
+  // BUG #697 — o filtro ?ativo= retorna 0 para QUALQUER valor (true/false/1/0/
   // Ativo), embora existam 116 colaboradores (ativos e inativos). O filtro de
   // status está quebrado. Afirma o comportamento CORRETO (ativo=true traz os
   // ativos) → falha enquanto o bug existir.
-  test.fail('CC-API-08 — filtro ?ativo=true deveria retornar colaboradores ativos [BUG filtro ativo]', async () => {
+  test.fail('CC-API-08 — filtro ?ativo=true deveria retornar colaboradores ativos [BUG #697]', async () => {
     const j = await (await api.get('/colaboradores?ativo=true')).json();
     expect(j.total, 'deveria haver colaboradores ativos').toBeGreaterThan(0);
     for (const c of j.data) expect(c.ativo).toBe(true);
