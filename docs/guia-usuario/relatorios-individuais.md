@@ -1,5 +1,7 @@
 # Relatórios Individuais (BAI, BHS, BDI, BSS)
 
+![Tela: Relatórios Individuais (BAI, BHS, BDI, BSS)](img/relatorios-individuais.png)
+
 Relatórios das **entrevistas individuais** por protocolo de avaliação.
 
 ## Protocolos (abas)

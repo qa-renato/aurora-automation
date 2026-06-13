@@ -1,5 +1,7 @@
 # Adesão e Engajamento
 
+![Tela: Adesão e Engajamento](img/adesao.png)
+
 Tela para **acompanhar quem já respondeu** os questionários de um lote.
 
 ## O que você vê

@@ -1,5 +1,7 @@
 # Métricas da IA
 
+![Tela: Métricas da IA](img/metricas-ia.png)
+
 Tela com o **uso do assistente de Inteligência Artificial** da Aurora.
 
 ## O que você vê

@@ -1,5 +1,7 @@
 # Configurações
 
+![Tela: Configurações](img/configuracoes.png)
+
 Tela de **ajustes da plataforma** (visuais e de sistema).
 
 ## Seções

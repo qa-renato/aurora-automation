@@ -1,5 +1,7 @@
 # Pedidos de Protocolo
 
+![Tela: Pedidos de Protocolo](img/pedidos.png)
+
 Tela para **solicitar questionários (protocolos)** aos colaboradores.
 
 ## O que você vê

@@ -1,5 +1,7 @@
 # Resultados Consolidados
 
+![Tela: Resultados Consolidados](img/resultados-consolidados.png)
+
 Visão **consolidada** que reúne os principais resultados num só lugar.
 
 ## O que você vê

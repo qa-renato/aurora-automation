@@ -1,5 +1,7 @@
 # Auditoria
 
+![Tela: Auditoria](img/auditoria.png)
+
 Tela com o **histórico de ações** realizadas no sistema (trilha de auditoria).
 
 ## O que você vê

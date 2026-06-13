@@ -1,5 +1,7 @@
 # Gestão de Colaboradores
 
+![Tela: Gestão de Colaboradores](img/colaboradores.png)
+
 Tela para **cadastrar, consultar e manter** os colaboradores da empresa.
 
 ## O que você vê

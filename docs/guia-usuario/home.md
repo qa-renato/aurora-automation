@@ -1,5 +1,7 @@
 # Home / Painel
 
+![Tela: Home / Painel](img/home.png)
+
 A tela inicial mostra um **resumo do bem-estar da empresa** e atalhos para os relatórios.
 
 ## O que você vê

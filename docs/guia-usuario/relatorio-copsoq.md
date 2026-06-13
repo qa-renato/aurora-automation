@@ -1,5 +1,7 @@
 # Relatório COPSOQ
 
+![Tela: Relatório COPSOQ](img/relatorio-copsoq.png)
+
 Relatório da **Entrevista Ocupacional (Copenhagen — COPSOQ)**.
 
 ## O que você vê

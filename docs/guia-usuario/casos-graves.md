@@ -1,5 +1,7 @@
 # Casos Graves
 
+![Tela: Casos Graves](img/casos-graves.png)
+
 Tela para **identificar e dar tratamento** aos casos que requerem atenção imediata.
 
 ## O que você vê
