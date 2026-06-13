@@ -97,6 +97,14 @@ test.describe('Contrato de API — Configurações', () => {
     expect(res.status()).toBe(200);
   });
 
+  test('CFG-API-05b — PATCH /configuracoes/cargos responde 200', async () => {
+    const res = await api.patch('/configuracoes/cargos', {
+      data: JSON.stringify({ cargos: original.cargos }),
+      headers: JSON_H,
+    });
+    expect(res.status()).toBe(200);
+  });
+
   // BUG NOVO — a escrita de configuração é um NO-OP: PATCH /configuracoes/visual
   // retorna 200 mas a `corPrincipal` NÃO muda (resposta e leituras subsequentes,
   // por >15s, mantêm o valor antigo). O "Salvar" da tela engana o usuário —
