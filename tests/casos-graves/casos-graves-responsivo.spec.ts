@@ -8,11 +8,11 @@ import { CasosGravesPage, KPIS } from '../../pages/CasosGravesPage';
 // (1280px) não ocorre.
 
 test.describe('Casos Graves — responsividade do painel Gerenciar Casos', () => {
-  // BUG #686 — afirma o comportamento CORRETO: a ~820px nenhum rótulo de KPI
-  // deve transbordar seu card (o conteúdo deve caber/quebrar linha). Hoje os 5
-  // rótulos têm scrollWidth > clientWidth (texto maior que a caixa) — falha
-  // esperada enquanto o bug existir.
-  test.fail('R686 — a ~820px os rótulos de KPI não devem transbordar o card [BUG #686]', async ({ page }) => {
+  // REGRESSÃO #686 — CORRIGIDO (verificado deployado no sandbox em 2026-06-13;
+  // fix inbot-monorepo #135). A ~820px nenhum rótulo de KPI deve transbordar seu
+  // card. Antes os 5 rótulos tinham scrollWidth > clientWidth (overflow:visible).
+  // Travado como teste PASSANTE — se regredir, falha.
+  test('R686 — a ~820px os rótulos de KPI não devem transbordar o card [regressão #686]', async ({ page }) => {
     await page.setViewportSize({ width: 820, height: 900 });
     const cg = new CasosGravesPage(page);
     await cg.navigate();
