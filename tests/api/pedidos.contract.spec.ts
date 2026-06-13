@@ -85,7 +85,7 @@ test.describe('Contrato de API — Pedidos', () => {
   // BUG (validação) — POST /pedidos sem corpo deveria responder 400, mas retorna
   // 409 "Já existe um pedido aberto de undefined para undefined". Afirma o
   // CORRETO (400 de validação) → falha enquanto a validação for fraca.
-  test.fail('PD-API-06 — POST /pedidos sem dados deveria validar com 400 [BUG validação]', async () => {
+  test.fail('PD-API-06 — POST /pedidos sem dados deveria validar com 400 [BUG #701]', async () => {
     const res = await api.post('/pedidos', { data: JSON.stringify({}), headers: JSON_H });
     expect(res.status()).toBe(400);
   });
@@ -93,7 +93,7 @@ test.describe('Contrato de API — Pedidos', () => {
   // BUG (erro 500) — POST /pedidos/lote com corpo inválido deveria responder 400,
   // mas retorna 500 Internal Server Error. Afirma o CORRETO → falha hoje.
   // (Não enviamos protocolo válido de propósito: isso criaria pedidos em massa.)
-  test.fail('PD-API-07 — POST /pedidos/lote inválido deveria validar com 400, não 500 [BUG]', async () => {
+  test.fail('PD-API-07 — POST /pedidos/lote inválido deveria validar com 400, não 500 [BUG #701]', async () => {
     const res = await api.post('/pedidos/lote', { data: JSON.stringify({}), headers: JSON_H });
     expect(res.status()).toBe(400);
   });
