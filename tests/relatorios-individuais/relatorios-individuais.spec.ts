@@ -115,11 +115,11 @@ test.describe('Relatórios Individuais', () => {
     expect(await p.temAnalisePorPergunta()).toBeTruthy();
   });
 
-  // BUG NOVO (deep-link) — abrir/recarregar a URL com `?protocolo=bhs` deveria
+  // BUG #695 (deep-link) — abrir/recarregar a URL com `?protocolo=bhs` deveria
   // abrir o relatório BHS, mas a página IGNORA o query param e sempre abre o
   // BAI. Afirma o comportamento CORRETO (deep-link respeita o protocolo) —
   // falha enquanto o bug existir.
-  test.fail('RI15 — deep-link ?protocolo=bhs deveria abrir o relatório BHS [BUG deep-link]', async ({ page }) => {
+  test.fail('RI15 — deep-link ?protocolo=bhs deveria abrir o relatório BHS [BUG #695]', async ({ page }) => {
     await page.goto(p.urlComProtocolo('BHS'), { waitUntil: 'load' });
     await p.titulo.waitFor({ state: 'visible', timeout: 20000 });
     await page.waitForTimeout(2500);
@@ -128,10 +128,10 @@ test.describe('Relatórios Individuais', () => {
     expect(await p.getPeriodo()).not.toContain('19/05/2026');
   });
 
-  // BUG NOVO (rótulo) — a "DISTRIBUIÇÃO POR NÍVEL DE ..." deveria refletir o
+  // BUG #696 (rótulo) — a "DISTRIBUIÇÃO POR NÍVEL DE ..." deveria refletir o
   // protocolo (Desesperança no BHS), mas fica fixa em "ANSIEDADE" para todos.
   // Afirma o comportamento CORRETO — falha enquanto o rótulo for hardcoded.
-  test.fail('RI16 — distribuição do BHS deveria ser "DESESPERANÇA", não "ANSIEDADE" [BUG rótulo]', async () => {
+  test.fail('RI16 — distribuição do BHS deveria ser "DESESPERANÇA", não "ANSIEDADE" [BUG #696]', async () => {
     await p.selecionarProtocolo('BHS');
     const heading = await p.getDistribuicaoHeading();
     expect(heading.toUpperCase()).not.toContain('ANSIEDADE');
