@@ -102,7 +102,7 @@ test.describe('Contrato de API — Configurações', () => {
   // por >15s, mantêm o valor antigo). O "Salvar" da tela engana o usuário —
   // parece salvar, mas nada persiste. Afirma o CORRETO (a cor persiste) → falha
   // enquanto a escrita não tiver efeito.
-  test.fail('CFG-API-06 — PATCH visual deveria PERSISTIR a nova cor [BUG escrita no-op]', async () => {
+  test.fail('CFG-API-06 — PATCH visual deveria PERSISTIR a nova cor [BUG #700]', async () => {
     const novaCor = '#123456';
     const r = await api.patch('/configuracoes/visual', {
       data: JSON.stringify({ logoBase64: original.visual.logoBase64, corPrincipal: novaCor }),
@@ -115,7 +115,7 @@ test.describe('Contrato de API — Configurações', () => {
 
   // BUG NOVO (mesmo problema) — PATCH /configuracoes/departamentos retorna 200
   // mas o novo departamento não é incluído (write no-op).
-  test.fail('CFG-API-07 — PATCH departamentos deveria PERSISTIR o novo depto [BUG escrita no-op]', async () => {
+  test.fail('CFG-API-07 — PATCH departamentos deveria PERSISTIR o novo depto [BUG #700]', async () => {
     const novo = `QA-CFG-${Date.now()}`;
     const r = await api.patch('/configuracoes/departamentos', {
       data: JSON.stringify({ departamentos: [...original.departamentos, novo] }),

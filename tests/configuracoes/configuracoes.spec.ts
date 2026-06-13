@@ -62,9 +62,8 @@ test.describe('Configurações', () => {
 
   // BUG NOVO (layout) — em "Campos de Colaborador", o botão "Adicionar" (+) e o
   // botão "Salvar" ficam GRUDADOS, sem espaçamento vertical (cargos: 0px;
-  // departamentos: ~5px) — visualmente encavalados. Afirma o CORRETO (gap >= 8px)
-  // → falha enquanto estiverem colados.
-  test.fail('CF08 — botões "Adicionar" e "Salvar" (cargo/depto) devem ter espaçamento [BUG layout]', async ({ page }) => {
+  // departamentos: ~5px) — visualmente encavalados [BUG #699].
+  test.fail('CF08 — botões "Adicionar" e "Salvar" (cargo/depto) devem ter espaçamento [BUG #699]', async ({ page }) => {
     const gaps = await page.evaluate(() => {
       const btn = (re: RegExp) =>
         [...document.querySelectorAll('button')].find(
