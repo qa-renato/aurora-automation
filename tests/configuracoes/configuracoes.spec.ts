@@ -59,4 +59,31 @@ test.describe('Configurações', () => {
   test('CF07 — deve consultar a API de configurações com sucesso (200)', async () => {
     expect(p.getApiStatus()).toBe(200);
   });
+
+  // BUG NOVO (layout) — em "Campos de Colaborador", o botão "Adicionar" (+) e o
+  // botão "Salvar" ficam GRUDADOS, sem espaçamento vertical (cargos: 0px;
+  // departamentos: ~5px) — visualmente encavalados. Afirma o CORRETO (gap >= 8px)
+  // → falha enquanto estiverem colados.
+  test.fail('CF08 — botões "Adicionar" e "Salvar" (cargo/depto) devem ter espaçamento [BUG layout]', async ({ page }) => {
+    const gaps = await page.evaluate(() => {
+      const btn = (re: RegExp) =>
+        [...document.querySelectorAll('button')].find(
+          (b) => re.test((b.innerText || '').trim()) || re.test(b.getAttribute('aria-label') || ''),
+        );
+      const gap = (aRe: RegExp, bRe: RegExp) => {
+        const a = btn(aRe);
+        const s = btn(bRe);
+        if (!a || !s) return null;
+        const ra = a.getBoundingClientRect();
+        const rs = s.getBoundingClientRect();
+        return Math.round(rs.top - ra.bottom); // espaço entre o "+" e o "Salvar"
+      };
+      return {
+        cargo: gap(/^Adicionar cargo/i, /^Salvar cargos/i),
+        depto: gap(/^Adicionar departamento/i, /^Salvar departamentos/i),
+      };
+    });
+    expect(gaps.cargo, `gap cargo=${gaps.cargo}`).toBeGreaterThanOrEqual(8);
+    expect(gaps.depto, `gap depto=${gaps.depto}`).toBeGreaterThanOrEqual(8);
+  });
 });
