@@ -56,4 +56,17 @@ test.describe('Adesão e Engajamento', () => {
     // arquivo de relatório de adesão (hoje é .csv compatível com Excel)
     expect(download.suggestedFilename()).toMatch(/Relatorio_Adesao.*\.(csv|xlsx)$/i);
   });
+
+  // BUG #502 — a tabela "Acompanhamento por Colaborador" não tem seletor de
+  // itens por página (ao contrário de /colaboradores). Afirma o CORRETO (deve
+  // existir o controle) → falha enquanto ausente. (#503 — paginação — é correlato
+  // e só aparece com muitos registros, por isso não é guardado isoladamente.)
+  test.fail('AD07 — tabela de acompanhamento deveria ter seletor de itens por página [BUG #502]', async ({ page }) => {
+    const temSeletor = await page.evaluate(() =>
+      [...document.querySelectorAll('button, select, [role="combobox"]')].some((e) =>
+        /itens por página|por página/i.test((e as HTMLElement).innerText || e.getAttribute('aria-label') || ''),
+      ),
+    );
+    expect(temSeletor, 'deve haver seletor de itens por página').toBeTruthy();
+  });
 });
