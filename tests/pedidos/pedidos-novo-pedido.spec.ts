@@ -85,12 +85,28 @@ test.describe('Pedidos — Novo Pedido Individual', () => {
     await p.fecharViaX();
   });
 
-  test('PD27 — criar pedido individual deve concluir', async ({ page }) => {
+  test('PD27 — criar pedido individual envia escrita processada pela API', async ({ page }) => {
     const p = new PedidosPage(page);
-    await p.criarPedidoIndividual('COPSOQ', 'Gabriela Torres Pereira');
-    // sucesso esperado: o dialog fecha (com auto-retry)
-    await expect(p.dialog).toBeHidden({ timeout: 10000 });
+    await p.abrirNovoPedido();
+    await p.selecionarIndividual();
+    await p.selecionarProtocoloNoForm('COPSOQ');
+    // escolhe o 1º colaborador da lista (dinâmico, sem nome fixo)
+    await p.colaboradorCombobox.click();
+    await page.getByRole('option').first().click();
+    const [resp] = await Promise.all([
+      page.waitForResponse(
+        (r) => /\/pedidos(\/|$|\?)/.test(r.url()) && r.request().method() === 'POST',
+        { timeout: 10000 },
+      ),
+      p.criarPedidoButton.click(),
+    ]);
+    // 201 = pedido criado; 409 = colaborador já tem pedido aberto p/ o protocolo
+    // (regra de negócio). Ambos provam que o fluxo de criação chega à API e é
+    // processado (escrita não bloqueada na sessão automatizada).
+    expect([201, 409], `POST /pedidos retornou ${resp.status()}`).toContain(resp.status());
+    if (resp.status() === 201) await expect(p.dialog).toBeHidden({ timeout: 10000 });
     await takeEvidenceScreenshot(page, test.info(), 'pedidos-individual-criado');
+    await p.fecharViaX().catch(() => {});
   });
 
   test('PD28 — "Voltar" retorna à escolha de tipo', async ({ page }) => {

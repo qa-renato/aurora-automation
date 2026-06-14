@@ -11,11 +11,16 @@ test.describe('Pedidos — Filtro por Protocolo (cards de adesão)', () => {
     await new PedidosPage(page).navigate();
   });
 
-  test('PD34 — clicar no card de um protocolo deve filtrar a tabela', async ({ page }) => {
+  // Os cards de adesão por protocolo no topo PARECEM clicáveis, mas clicar não
+  // filtra a tabela (ex.: clicar "BHS" mantém linhas "BAI"). test.fail afirma o
+  // comportamento esperado (card deveria filtrar) → falha enquanto não funcionar;
+  // vira verde se/quando o filtro por card for implementado.
+  // (Pendente de confirmação de produto: os cards devem ser filtros ou só resumo?)
+  test.fail('PD34 — clicar no card de um protocolo deveria filtrar a tabela [BUG: card não filtra]', async ({ page }) => {
     const p = new PedidosPage(page);
     await p.filtrarPorProtocolo('BHS');
     const protocolos = (await p.getColunaValores(2)).filter(Boolean);
-    test.skip(protocolos.length === 0, 'Sem linhas após filtro (dados indisponíveis)');
+    expect(protocolos.length, 'tabela deve ter linhas após o filtro').toBeGreaterThan(0);
     for (const proto of protocolos) expect(proto).toBe('BHS');
     await takeEvidenceScreenshot(page, test.info(), 'pedidos-filtro-protocolo');
   });

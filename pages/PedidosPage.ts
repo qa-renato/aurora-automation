@@ -68,7 +68,12 @@ export class PedidosPage extends BasePage {
     this.emLoteOption = page.getByRole('button').filter({ hasText: /^Em Lote/ })
       .or(page.getByText(/^Em Lote/));
     this.protocoloCombobox = page.locator('[role="dialog"] [role="combobox"]').first();
-    this.colaboradorCombobox = page.locator('[role="dialog"] [role="combobox"]').nth(1);
+    // O trigger do Colaborador é um <button> SEM role="combobox" (≠ Protocolo);
+    // localizamos pelo texto do trigger ("Selecione o colaborador").
+    this.colaboradorCombobox = page
+      .locator('[role="dialog"]')
+      .getByRole('button', { name: /colaborador/i })
+      .first();
     this.criarPedidoButton = page.getByRole('button', { name: /Criar Pedido/i });
     this.criarEmLoteButton = page.getByRole('button', { name: /Criar em Lote/i });
     this.voltarButton = page.getByRole('button', { name: 'Voltar' });
