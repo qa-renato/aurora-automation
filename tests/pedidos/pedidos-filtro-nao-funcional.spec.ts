@@ -5,24 +5,14 @@ import { takeEvidenceScreenshot } from '../../utils/screenshots';
 
 // Filtro por protocolo (cards de resumo), navegação e cobertura não-funcional.
 
-test.describe('Pedidos — Filtro por Protocolo (cards de adesão)', () => {
+// Os cards de adesão por protocolo no topo são PURAMENTE INFORMATIVOS (confirmado
+// com produto, 2026-06-14): exibem a adesão (% e fração atendidos/total) e NÃO
+// filtram a tabela ao clicar — por design. Por isso não há teste de "filtro por
+// card"; o PD35 valida o conteúdo informativo dos cards.
+test.describe('Pedidos — Cards de adesão por protocolo (informativos)', () => {
 
   test.beforeEach(async ({ page }) => {
     await new PedidosPage(page).navigate();
-  });
-
-  // Os cards de adesão por protocolo no topo PARECEM clicáveis, mas clicar não
-  // filtra a tabela (ex.: clicar "BHS" mantém linhas "BAI"). test.fail afirma o
-  // comportamento esperado (card deveria filtrar) → falha enquanto não funcionar;
-  // vira verde se/quando o filtro por card for implementado.
-  // (Pendente de confirmação de produto: os cards devem ser filtros ou só resumo?)
-  test.fail('PD34 — clicar no card de um protocolo deveria filtrar a tabela [BUG: card não filtra]', async ({ page }) => {
-    const p = new PedidosPage(page);
-    await p.filtrarPorProtocolo('BHS');
-    const protocolos = (await p.getColunaValores(2)).filter(Boolean);
-    expect(protocolos.length, 'tabela deve ter linhas após o filtro').toBeGreaterThan(0);
-    for (const proto of protocolos) expect(proto).toBe('BHS');
-    await takeEvidenceScreenshot(page, test.info(), 'pedidos-filtro-protocolo');
   });
 
   test('PD35 — cards de protocolo exibem adesão (% e fração)', async ({ page }) => {
