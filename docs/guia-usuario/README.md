@@ -7,7 +7,7 @@ O Aurora é acessado pelo navegador. O login é feito com sua **conta corporativ
 
 ## Índice por rotina
 1. [Home / Painel](home.md) — visão geral dos indicadores
-2. [Gestão de Colaboradores](colaboradores.md) — cadastro e gestão de pessoas
+2. [Gestão de Colaboradores](colaboradores.md) — cadastro e gestão de pessoas ([manual detalhado](colaboradores-detalhado.md))
 3. [Pedidos de Protocolo](pedidos.md) — solicitar questionários
 4. [Adesão e Engajamento](adesao.md) — acompanhar respostas
 5. [Métricas da IA](metricas-ia.md) — uso do assistente
