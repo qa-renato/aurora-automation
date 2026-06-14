@@ -111,12 +111,17 @@ test.describe('Contrato de API — Configurações', () => {
   // parece salvar, mas nada persiste. Afirma o CORRETO (a cor persiste) → falha
   // enquanto a escrita não tiver efeito.
   test.fail('CFG-API-06 — PATCH visual deveria PERSISTIR a nova cor [BUG #700]', async () => {
-    const novaCor = '#123456';
-    const r = await api.patch('/configuracoes/visual', {
+    // cor ÚNICA por execução: um valor fixo pode coincidir com o estado "preso"
+    // do sandbox (corPrincipal travada) e mascarar o no-op (CFG-API-06 chegou a
+    // "passar" por isso). Validamos PERSISTÊNCIA relendo via GET, não pelo eco do
+    // PATCH (que pode devolver a entrada sem salvar).
+    const novaCor = '#' + Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, '0');
+    await api.patch('/configuracoes/visual', {
       data: JSON.stringify({ logoBase64: original.visual.logoBase64, corPrincipal: novaCor }),
       headers: JSON_H,
     });
-    expect((await r.json()).visual.corPrincipal).toBe(novaCor);
+    const relido = (await (await api.get('/configuracoes')).json()).visual.corPrincipal;
+    expect(relido).toBe(novaCor);
     // reverte (inócuo enquanto a escrita for no-op)
     await api.patch('/configuracoes/visual', { data: JSON.stringify(original.visual), headers: JSON_H }).catch(() => {});
   });
