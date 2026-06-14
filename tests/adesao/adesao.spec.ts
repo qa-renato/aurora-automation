@@ -39,11 +39,20 @@ test.describe('Adesão e Engajamento', () => {
     const p = new AdesaoPage(page);
     const antesResumo = await p.getResumoRespostas();
     const antesRows = await p.getRowCount();
-    await p.selecionarLotePorIndice(1);
-    const depoisResumo = await p.getResumoRespostas();
-    const depoisRows = await p.getRowCount();
-    // ao menos um dos dois muda (lotes têm públicos diferentes)
-    expect(depoisResumo !== antesResumo || depoisRows !== antesRows).toBeTruthy();
+    const totalLotes = (await p.getOpcoesLote()).length;
+
+    // Lotes distintos podem compartilhar o mesmo público (ex.: dois lotes "0 de 1"),
+    // então não basta pular para o índice seguinte. Procuramos QUALQUER outro lote
+    // cujo resumo OU contagem de linhas difira do inicial — provando que a tela
+    // reage à troca de lote (se NENHUM diferir, é falha real).
+    let mudou = false;
+    for (let i = 1; i < totalLotes && !mudou; i++) {
+      await p.selecionarLotePorIndice(i);
+      const depoisResumo = await p.getResumoRespostas();
+      const depoisRows = await p.getRowCount();
+      mudou = depoisResumo !== antesResumo || depoisRows !== antesRows;
+    }
+    expect(mudou, 'trocar de lote deve atualizar resumo e/ou tabela em ao menos um lote').toBeTruthy();
   });
 
   test('AD06 — botão "Exportar" deve gerar o download do relatório', async ({ page }) => {
