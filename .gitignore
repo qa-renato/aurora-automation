@@ -8,11 +8,7 @@ dist/
 auth/storageState.json
 
 # Relatórios e evidências
-reports/html/
-reports/json/
-reports/test-results/
-reports/screenshots/
-reports/logs/
+reports/
 
 # Playwright
 playwright/.cache/
