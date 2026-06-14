@@ -9,8 +9,8 @@ Central de documentação da plataforma **Aurora** (saúde mental e bem-estar oc
   Proposta de valor, recursos, base científica e benefícios para apresentação de vendas.
 
 ### 👤 Usuário final
-- [Guia do Usuário](guia-usuario/README.md) · [PDF único](guia-usuario-aurora.pdf)
-  Como usar cada rotina (com capturas de tela): Home, Colaboradores, Pedidos, Adesão, Métricas IA, Casos Graves, Relatórios, Auditoria, Configurações.
+- [Guia do Usuário (manual completo)](guia-usuario-aurora.md) · [PDF](guia-usuario-aurora.pdf)
+  Manual único com todas as 11 telas, tela por tela: Home, Colaboradores, Pedidos, Adesão, Métricas IA, Casos Graves, Relatórios (Individuais/COPSOQ/Consolidados), Auditoria, Configurações.
 
 ### 🛠️ Técnica
 - [Documentação Técnica](documentacao-tecnica/README.md) · [PDF único](documentacao-tecnica-aurora.pdf)
@@ -26,8 +26,7 @@ Central de documentação da plataforma **Aurora** (saúde mental e bem-estar oc
 docs/
 ├── README.md                          ← você está aqui
 ├── apresentacao-comercial-aurora.md / .pdf
-├── guia-usuario/                      (índice + 1 página por rotina + img/)
-├── guia-usuario-aurora.pdf
+├── guia-usuario-aurora.md / .pdf       (manual completo do usuário — todas as telas)
 ├── documentacao-tecnica/             (README, auth-rbac, api-reference, comportamentos)
 ├── documentacao-tecnica-aurora.pdf
 ├── relatorio-gerencial-aurora.md

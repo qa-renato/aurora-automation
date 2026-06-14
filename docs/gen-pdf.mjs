@@ -23,20 +23,7 @@ const SETS = {
   guia: {
     out: 'guia-usuario-aurora.pdf',
     title: 'Guia do Usuário — Aurora',
-    files: [
-      'guia-usuario/README.md',
-      'guia-usuario/home.md',
-      'guia-usuario/colaboradores.md',
-      'guia-usuario/pedidos.md',
-      'guia-usuario/adesao.md',
-      'guia-usuario/metricas-ia.md',
-      'guia-usuario/casos-graves.md',
-      'guia-usuario/relatorios-individuais.md',
-      'guia-usuario/relatorio-copsoq.md',
-      'guia-usuario/resultados-consolidados.md',
-      'guia-usuario/auditoria.md',
-      'guia-usuario/configuracoes.md',
-    ],
+    files: ['guia-usuario-aurora.md'],
   },
   comercial: {
     out: 'apresentacao-comercial-aurora.pdf',
@@ -48,21 +35,6 @@ const SETS = {
     title: 'Relatório de Cobertura de Testes — Aurora',
     files: ['relatorio-cobertura-testes-aurora.md'],
   },
-  'colaboradores-detalhado': {
-    out: 'guia-usuario/colaboradores-detalhado.pdf',
-    title: 'Manual de Uso — Tela de Colaboradores',
-    files: ['guia-usuario/colaboradores-detalhado.md'],
-  },
-  'home-detalhado': { out: 'guia-usuario/home-detalhado.pdf', title: 'Manual de Uso — Home / Painel', files: ['guia-usuario/home-detalhado.md'] },
-  'pedidos-detalhado': { out: 'guia-usuario/pedidos-detalhado.pdf', title: 'Manual de Uso — Pedidos de Protocolo', files: ['guia-usuario/pedidos-detalhado.md'] },
-  'adesao-detalhado': { out: 'guia-usuario/adesao-detalhado.pdf', title: 'Manual de Uso — Adesão e Engajamento', files: ['guia-usuario/adesao-detalhado.md'] },
-  'metricas-ia-detalhado': { out: 'guia-usuario/metricas-ia-detalhado.pdf', title: 'Manual de Uso — Métricas da IA', files: ['guia-usuario/metricas-ia-detalhado.md'] },
-  'casos-graves-detalhado': { out: 'guia-usuario/casos-graves-detalhado.pdf', title: 'Manual de Uso — Casos Graves', files: ['guia-usuario/casos-graves-detalhado.md'] },
-  'relatorios-individuais-detalhado': { out: 'guia-usuario/relatorios-individuais-detalhado.pdf', title: 'Manual de Uso — Relatórios Individuais', files: ['guia-usuario/relatorios-individuais-detalhado.md'] },
-  'relatorio-copsoq-detalhado': { out: 'guia-usuario/relatorio-copsoq-detalhado.pdf', title: 'Manual de Uso — Relatório COPSOQ', files: ['guia-usuario/relatorio-copsoq-detalhado.md'] },
-  'resultados-consolidados-detalhado': { out: 'guia-usuario/resultados-consolidados-detalhado.pdf', title: 'Manual de Uso — Resultados Consolidados', files: ['guia-usuario/resultados-consolidados-detalhado.md'] },
-  'auditoria-detalhado': { out: 'guia-usuario/auditoria-detalhado.pdf', title: 'Manual de Uso — Auditoria do Sistema', files: ['guia-usuario/auditoria-detalhado.md'] },
-  'configuracoes-detalhado': { out: 'guia-usuario/configuracoes-detalhado.pdf', title: 'Manual de Uso — Configurações', files: ['guia-usuario/configuracoes-detalhado.md'] },
 };
 
 const CSS = `
