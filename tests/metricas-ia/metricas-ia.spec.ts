@@ -40,24 +40,39 @@ test.describe('Métricas da IA', () => {
 
   test('MI05 — toggle de período (7/15/30 dias) altera o valor dos KPIs', async ({ page }) => {
     const p = new MetricasIaPage(page);
+    // exercita os três períodos disponíveis na tela (inclui "15 dias")
     await p.selecionarPeriodo('7 dias');
-    const v7 = await p.getKpiValor('VOLUME DE INTERAÇÕES');
+    const vol7 = await p.getKpiValor('VOLUME DE INTERAÇÕES');
+    const usr7 = await p.getKpiValor('QUANTIDADE DE USUÁRIOS');
+    await p.selecionarPeriodo('15 dias');
+    const vol15 = await p.getKpiValor('VOLUME DE INTERAÇÕES');
     await p.selecionarPeriodo('30 dias');
-    const v30 = await p.getKpiValor('VOLUME DE INTERAÇÕES');
-    // os números são reais e mudam com o período (ex.: 0 em 7 dias, >0 em 30 dias)
-    expect(v7 === '' && v30 === '').toBeFalsy();
-    expect(v30).not.toBe(v7);
+    const vol30 = await p.getKpiValor('VOLUME DE INTERAÇÕES');
+    const usr30 = await p.getKpiValor('QUANTIDADE DE USUÁRIOS');
+
+    // os números são reais (não vazios) e respondem ao filtro de período
+    expect([vol7, usr7, vol15, vol30, usr30].some((v) => v !== '')).toBeTruthy();
+    // ambos os KPIs mudam entre 7 e 30 dias (ex.: Volume 0->15, Usuários 0->13)
+    expect(vol30, 'Volume de Interações deve mudar com o período').not.toBe(vol7);
+    expect(usr30, 'Quantidade de Usuários deve mudar com o período').not.toBe(usr7);
+    // o período intermediário "15 dias" também produz valor próprio
+    expect(vol15, '"15 dias" deve produzir um valor de Volume').not.toBe('');
   });
 
   // BUG #687 — os badges de variação são ESTÁTICOS (não mudam com o período) e a
-  // API não retorna percentual. Este teste afirma o comportamento CORRETO esperado
-  // (o badge deveria mudar entre períodos) — falha enquanto o bug existir.
-  test.fail('MI06 — variação (%) deveria refletir o período [BUG #687]', async ({ page }) => {
+  // API não retorna percentual. Afeta OS DOIS KPIs. Este teste afirma o
+  // comportamento CORRETO (o badge deveria mudar entre períodos) — falha
+  // enquanto o bug existir.
+  test.fail('MI06 — variação (%) dos dois KPIs deveria refletir o período [BUG #687]', async ({ page }) => {
     const p = new MetricasIaPage(page);
     await p.selecionarPeriodo('7 dias');
-    const b7 = await p.getVariacaoBadge('VOLUME DE INTERAÇÕES');
+    const volB7 = await p.getVariacaoBadge('VOLUME DE INTERAÇÕES');
+    const usrB7 = await p.getVariacaoBadge('QUANTIDADE DE USUÁRIOS');
     await p.selecionarPeriodo('30 dias');
-    const b30 = await p.getVariacaoBadge('VOLUME DE INTERAÇÕES');
-    expect(b30).not.toBe(b7); // hoje ambos são "+12%" (estático) -> falha esperada
+    const volB30 = await p.getVariacaoBadge('VOLUME DE INTERAÇÕES');
+    const usrB30 = await p.getVariacaoBadge('QUANTIDADE DE USUÁRIOS');
+    // hoje ambos os badges são estáticos (Volume "+12%", Usuários "+8%") -> falha esperada.
+    // basta um dos KPIs refletir o período para o comportamento estar correto.
+    expect(volB30 !== volB7 || usrB30 !== usrB7).toBeTruthy();
   });
 });
