@@ -35,6 +35,11 @@ const SETS = {
     title: 'Relatório de Cobertura de Testes — Aurora',
     files: ['relatorio-cobertura-testes-aurora.md'],
   },
+  'apresentacao-qualidade': {
+    out: 'apresentacao-qualidade-aurora.pdf',
+    title: 'Apresentação — Qualidade e Cobertura do Aurora',
+    files: ['apresentacao-qualidade-aurora.md'],
+  },
 };
 
 const CSS = `
