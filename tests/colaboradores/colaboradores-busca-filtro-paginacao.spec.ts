@@ -10,8 +10,10 @@ test.describe('Colaboradores — Busca (variações)', () => {
 
   test('CT53 — busca deve ser case-insensitive', async ({ page }) => {
     const p = new ColaboradoresPage(page);
-    await p.buscar('bruno henrique souza');
-    await expect(page.locator('tbody td').filter({ hasText: 'Bruno Henrique Souza' })).toBeVisible();
+    const alvo = await p.getPrimeiroColaborador(); // registro real existente
+    test.skip(!alvo, 'Sem colaboradores na base para validar a busca.');
+    await p.buscar(alvo!.nome.toLowerCase()); // busca em minúsculas
+    await expect(page.locator('tbody td').filter({ hasText: alvo!.nome })).toBeVisible();
   });
 
   test('CT54 — busca deve ignorar acentuação', async ({ page }) => {
@@ -21,19 +23,24 @@ test.describe('Colaboradores — Busca (variações)', () => {
     await takeEvidenceScreenshot(page, test.info(), 'busca-sem-acento');
   });
 
-  test('CT55 — buscar deveria retornar à página 1 [BUG]', async ({ page }) => {
-    test.fail(true, 'BUG: ao buscar estando em página > 1, a app não retorna à página 1.');
+  // Regressão (bug #682 corrigido): ao buscar estando em página > 1, a app
+  // deve retornar à página 1. Era test.fail; confirmado corrigido em 2026-06-14.
+  test('CT55 — buscar deve retornar à página 1', async ({ page }) => {
     const p = new ColaboradoresPage(page);
     await p.irParaProximaPagina();
     await p.buscar('a'); // termo amplo: mantém várias páginas
     expect(await p.getPaginationText()).toMatch(/^Mostrando 1-/);
   });
 
-  test('CT56 — busca deveria ignorar espaços nas pontas (trim) [BUG]', async ({ page }) => {
-    test.fail(true, 'BUG: espaços no início/fim do termo não são removidos; a busca não encontra.');
+  // Regressão (corrigido em 2026-06-14): a busca deve ignorar espaços nas pontas
+  // (trim). Era test.fail; confirmado corrigido.
+  test('CT56 — busca deve ignorar espaços nas pontas (trim)', async ({ page }) => {
     const p = new ColaboradoresPage(page);
-    await p.buscar('  Bruno  ');
-    await expect(page.locator('tbody td').filter({ hasText: 'Bruno Henrique Souza' })).toBeVisible();
+    const alvo = await p.getPrimeiroColaborador();
+    test.skip(!alvo, 'Sem colaboradores na base para validar a busca.');
+    const primeiroNome = alvo!.nome.split(' ')[0];
+    await p.buscar(`  ${primeiroNome}  `); // com espaços nas pontas
+    await expect(page.locator('tbody td').filter({ hasText: alvo!.nome })).toBeVisible();
   });
 
 });

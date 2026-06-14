@@ -1,6 +1,6 @@
 import { test, expect } from '../../fixtures/test-fixtures';
 import { ColaboradoresPage } from '../../pages/ColaboradoresPage';
-import { novoColaboradorValido } from '../../test-data/colaboradores';
+import { novoColaboradorValido, cpfInvalido } from '../../test-data/colaboradores';
 import { takeEvidenceScreenshot } from '../../utils/screenshots';
 
 // Validações do formulário de cadastro — todas confirmadas existindo na app.
@@ -48,19 +48,15 @@ test.describe('Colaboradores — Validações de Cadastro', () => {
     await p.fecharDialog();
   });
 
-  // BUG CONHECIDO: a aplicação valida apenas o FORMATO do CPF (11 dígitos), mas
-  // NÃO o dígito verificador. Um CPF como 363.044.490-00 (formato ok, checksum
-  // inválido) é aceito e salvo. Este teste afirma o comportamento CORRETO
-  // (deveria bloquear) e está marcado test.fail — quando o bug for corrigido,
-  // o Playwright acusará "expected to fail but passed" e o marcador deve sair.
-  test('CT43 — CPF com dígito verificador inválido deveria ser rejeitado [BUG]', async ({ page }) => {
-    test.fail(true, 'BUG: app aceita CPF com checksum inválido (valida só o formato de 11 dígitos).');
+  // Regressão (corrigido em 2026-06-14): a aplicação passou a validar o dígito
+  // verificador do CPF. Um CPF com formato ok mas checksum inválido deve ser
+  // rejeitado. Era test.fail (app antes só validava o formato de 11 dígitos).
+  test('CT43 — CPF com dígito verificador inválido é rejeitado', async ({ page }) => {
     const p = new ColaboradoresPage(page);
-    // novoColaboradorValido() gera CPF terminado em "-00" — checksum quase sempre inválido.
-    const dados = novoColaboradorValido();
-    await p.cadastrarColaborador(dados);
+    await p.cadastrarColaborador({ ...novoColaboradorValido(), cpf: cpfInvalido() });
     await expect(page.getByText('CPF inválido')).toBeVisible();
     expect(await p.isDialogAberto()).toBe(true);
+    await p.fecharDialog();
   });
 
 });

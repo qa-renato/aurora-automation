@@ -249,6 +249,83 @@ export class ColaboradoresPage extends BasePage {
     return this.page.locator('tbody tr td').first().innerText();
   }
 
+  // ─── Seleção dinâmica de seed (resiliência a reset da massa de dados) ───────
+  // Os nomes de colaboradores no sandbox mudam quando a base é reinicializada.
+  // Em vez de depender de nomes fixos, escolhemos um registro REAL da tabela em
+  // tempo de execução; quando o teste exige um registro específico ausente, o
+  // chamador faz test.skip() com a mensagem do caso.
+
+  /** Nomes reais da 1ª página da tabela (ignora o empty-state). */
+  async getNomesDaTabela(): Promise<string[]> {
+    const nomes = await this.page.locator('tbody tr td:nth-child(1)').allTextContents();
+    return nomes
+      .map((n) => n.trim())
+      .filter((n) => n && !/Nenhum colaborador encontrado/i.test(n));
+  }
+
+  /** Nome + e-mail do 1º colaborador real visível (ou null se a tabela estiver vazia). */
+  async getPrimeiroColaborador(): Promise<{ nome: string; email: string } | null> {
+    const row = this.page.locator('tbody tr').filter({ hasNot: this.page.getByText(/Nenhum colaborador/i) }).first();
+    if ((await row.count()) === 0) return null;
+    const nome = (await row.locator('td').nth(0).innerText()).trim();
+    const email = (await row.locator('td').nth(1).innerText()).trim();
+    return nome ? { nome, email } : null;
+  }
+
+  /**
+   * Escolhe um colaborador existente: o 1º da lista de `preferidos` presente na
+   * tabela; senão o 1º nome real visível; senão null (chamador faz test.skip).
+   */
+  async escolherSeed(preferidos: string[] = []): Promise<string | null> {
+    const nomes = await this.getNomesDaTabela();
+    const preferido = preferidos.find((p) => nomes.some((n) => n.includes(p)));
+    if (preferido) return nomes.find((n) => n.includes(preferido))!;
+    return nomes[0] ?? null;
+  }
+
+  private campoPorNome(campo: 'nome' | 'email' | 'telefone' | 'cpf'): Locator {
+    return { nome: this.nomeInput, email: this.emailInput, telefone: this.telefoneInput, cpf: this.cpfInput }[campo];
+  }
+
+  /** Lê o CPF de um colaborador existente (abre a edição, lê e fecha). */
+  async lerCpfDoColaborador(nome: string): Promise<string> {
+    await this.buscar(nome);
+    await this.abrirEdicaoPorNome(nome);
+    const cpf = (await this.cpfInput.inputValue()).trim();
+    await this.fecharDialog();
+    return cpf;
+  }
+
+  /**
+   * Reabre a edição do colaborador e confirma se o campo reflete o valor
+   * esperado, com tentativas para absorver a propagação EVENTUAL do sandbox
+   * (escritas levam de ~3s a dezenas de segundos). Retorna true se refletiu.
+   * Permite distinguir "escrita não persistiu" de "ambiente lento" (→ skip).
+   */
+  async campoRefleteAposReabrir(
+    nome: string,
+    campo: 'nome' | 'email' | 'telefone' | 'cpf',
+    esperado: string,
+    tentativas = 5,
+  ): Promise<boolean> {
+    const loc = this.campoPorNome(campo);
+    for (let i = 0; i < tentativas; i++) {
+      await this.buscar(nome);
+      // fail-fast: só tenta abrir se a linha aparecer rápido (evita esperar
+      // 15s por um registro que ainda não propagou e estourar o test timeout).
+      const achou = await this.page.locator('tbody tr').filter({ hasText: nome }).first()
+        .waitFor({ state: 'visible', timeout: 3000 }).then(() => true).catch(() => false);
+      if (achou) {
+        await this.abrirEdicaoPorNome(nome).catch(() => {});
+        const v = await loc.inputValue().catch(() => '');
+        await this.fecharDialog();
+        if (v === esperado) return true;
+      }
+      await this.page.waitForTimeout(2500);
+    }
+    return false;
+  }
+
   // ─── Cadastro Manual ───────────────────────────────────────────────────────
 
   async abrirDialogAdicionar(): Promise<void> {
