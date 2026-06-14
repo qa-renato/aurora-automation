@@ -48,6 +48,11 @@ const SETS = {
     title: 'Relatório de Cobertura de Testes — Aurora',
     files: ['relatorio-cobertura-testes-aurora.md'],
   },
+  'colaboradores-detalhado': {
+    out: 'guia-usuario/colaboradores-detalhado.pdf',
+    title: 'Manual de Uso — Tela de Colaboradores',
+    files: ['guia-usuario/colaboradores-detalhado.md'],
+  },
 };
 
 const CSS = `
