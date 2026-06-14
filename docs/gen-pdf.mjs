@@ -53,6 +53,16 @@ const SETS = {
     title: 'Manual de Uso — Tela de Colaboradores',
     files: ['guia-usuario/colaboradores-detalhado.md'],
   },
+  'home-detalhado': { out: 'guia-usuario/home-detalhado.pdf', title: 'Manual de Uso — Home / Painel', files: ['guia-usuario/home-detalhado.md'] },
+  'pedidos-detalhado': { out: 'guia-usuario/pedidos-detalhado.pdf', title: 'Manual de Uso — Pedidos de Protocolo', files: ['guia-usuario/pedidos-detalhado.md'] },
+  'adesao-detalhado': { out: 'guia-usuario/adesao-detalhado.pdf', title: 'Manual de Uso — Adesão e Engajamento', files: ['guia-usuario/adesao-detalhado.md'] },
+  'metricas-ia-detalhado': { out: 'guia-usuario/metricas-ia-detalhado.pdf', title: 'Manual de Uso — Métricas da IA', files: ['guia-usuario/metricas-ia-detalhado.md'] },
+  'casos-graves-detalhado': { out: 'guia-usuario/casos-graves-detalhado.pdf', title: 'Manual de Uso — Casos Graves', files: ['guia-usuario/casos-graves-detalhado.md'] },
+  'relatorios-individuais-detalhado': { out: 'guia-usuario/relatorios-individuais-detalhado.pdf', title: 'Manual de Uso — Relatórios Individuais', files: ['guia-usuario/relatorios-individuais-detalhado.md'] },
+  'relatorio-copsoq-detalhado': { out: 'guia-usuario/relatorio-copsoq-detalhado.pdf', title: 'Manual de Uso — Relatório COPSOQ', files: ['guia-usuario/relatorio-copsoq-detalhado.md'] },
+  'resultados-consolidados-detalhado': { out: 'guia-usuario/resultados-consolidados-detalhado.pdf', title: 'Manual de Uso — Resultados Consolidados', files: ['guia-usuario/resultados-consolidados-detalhado.md'] },
+  'auditoria-detalhado': { out: 'guia-usuario/auditoria-detalhado.pdf', title: 'Manual de Uso — Auditoria do Sistema', files: ['guia-usuario/auditoria-detalhado.md'] },
+  'configuracoes-detalhado': { out: 'guia-usuario/configuracoes-detalhado.pdf', title: 'Manual de Uso — Configurações', files: ['guia-usuario/configuracoes-detalhado.md'] },
 };
 
 const CSS = `
