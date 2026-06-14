@@ -43,6 +43,11 @@ const SETS = {
     title: 'Apresentação Comercial — Aurora',
     files: ['apresentacao-comercial-aurora.md'],
   },
+  cobertura: {
+    out: 'relatorio-cobertura-testes-aurora.pdf',
+    title: 'Relatório de Cobertura de Testes — Aurora',
+    files: ['relatorio-cobertura-testes-aurora.md'],
+  },
 };
 
 const CSS = `
