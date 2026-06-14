@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { test, expect } from '../../fixtures/test-fixtures';
 import { AdesaoPage } from '../../pages/AdesaoPage';
 import { takeEvidenceScreenshot } from '../../utils/screenshots';
@@ -55,15 +56,25 @@ test.describe('Adesão e Engajamento', () => {
     expect(mudou, 'trocar de lote deve atualizar resumo e/ou tabela em ao menos um lote').toBeTruthy();
   });
 
-  test('AD06 — botão "Exportar" deve gerar o download do relatório', async ({ page }) => {
+  test('AD06 — "Exportar Excel" gera o download e o CSV reflete a tela', async ({ page }) => {
     const p = new AdesaoPage(page);
     await expect(p.exportarButton).toBeVisible();
+    const rowsTela = await p.getRowCount();
     const [download] = await Promise.all([
       page.waitForEvent('download', { timeout: 10000 }),
       p.exportarButton.click(),
     ]);
-    // arquivo de relatório de adesão (hoje é .csv compatível com Excel)
+    // arquivo de relatório de adesão (hoje é .csv compatível com Excel; BOM + separador ";")
     expect(download.suggestedFilename()).toMatch(/Relatorio_Adesao.*\.(csv|xlsx)$/i);
+
+    // conteúdo: cabeçalho com as colunas da tela (Colaborador/Status) e uma
+    // linha de dados por colaborador da tabela do lote selecionado.
+    const conteudo = readFileSync(await download.path(), 'utf8').replace(/^﻿/, '');
+    const linhas = conteudo.split(/\r?\n/).filter((l) => l.trim() !== '');
+    const header = linhas[0].toLowerCase();
+    expect(header, 'cabeçalho do CSV deve ter as colunas da tela').toContain('colaborador');
+    expect(header).toContain('status');
+    expect(linhas.length - 1, 'linhas de dados do CSV devem bater com a tabela').toBe(rowsTela);
   });
 
   // BUG #502 — a tabela "Acompanhamento por Colaborador" não tem seletor de
