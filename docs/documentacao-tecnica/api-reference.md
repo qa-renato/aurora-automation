@@ -8,12 +8,12 @@ Retorna o contexto/permissões do usuário. → `{ sub, email, nome, perfil, ten
 
 ## Colaboradores
 ### `GET /colaboradores`
-Query: `page`, `limit` (default 50), `search` (nome/e-mail), `departamento`. *(o filtro `ativo` está quebrado — ver #697; `status`/`q`/`nome` são ignorados.)*
+Query: `page`, `limit` (default 50), `search` (nome/e-mail), `departamento`, `ativo`.
 → `{ data: [{ id, nome, cpf, email, departamento, cargo, ativo, dataNascimento, telefone, genero, escolaridade, estadoCivil, ... }], page, limit, total }`
 
 ### `POST /colaboradores`
 Body: `{ ativo, nome, cpf, email, dataNascimento (ISO yyyy-mm-dd), departamento, cargo, telefone }` → **201** `{ id }`
-Erros: **400** `{message:["cpf inválido"]}`, `["email must be an email"]`, `["dataNascimento ...","must be a Date instance"]` *(ver #493, #497)*.
+Erros: **400** `{message:["cpf inválido"]}`, `["email must be an email"]`, `["dataNascimento ..."]`.
 
 ### `PUT /colaboradores/:id`
 Body completo (mesmos campos do POST) → **204**. `404` se o id não existir. *(PATCH e `GET /colaboradores/:id` → 404: não implementados.)*
@@ -30,15 +30,14 @@ Body completo (mesmos campos do POST) → **204**. `404` se o id não existir. *
 → `{ bemEstar, risco, balancaTrabalhoVida, casosGravesAbertos }` (números; rótulos são calculados no front).
 
 ### `GET /screens/metricas-ia?periodo=7`
-→ `{ kpis: { interacoes, quantidadeUsuarios }, serie: [{ name, interacoes }] }` (N pontos = dias do período). *(Sem campo de variação — ver #687.)*
+→ `{ kpis: { interacoes, quantidadeUsuarios }, serie: [{ name, interacoes }] }` (N pontos = dias do período).
 
 ### `GET /screens/relatorios/protocolo/{bai|bhs|bss|bdi}`
 → `{ protocolo, periodo:{inicio,fim}, totalRespostas, mediaScore, distribuicao:[{nome,quantidade}], resultados:[{colaboradorId,nome,email,score,nivel,genero,faixaEtaria,escolaridade,areaTrabalho}], distribuicoesDemo:{...}, casosGravesPorDemo:{...}, perguntas:[{numero,descricao,mediaValor,nivelLabel}] }`
-⚠️ **BHS** usa a chave `perguntasBhs:[{numero,descricao,percentualCritico,severidade}]` (ver #691).
+**BHS** usa a chave `perguntasBhs:[{numero,descricao,percentualCritico,severidade}]`.
 
 ### `GET /screens/relatorios/protocolo/copsoq`
 → `{ periodo, totalJornadas, kpis:{ bemEstar:{valor,label}, risco:{valor,label}, balanca:{valor} }, distribuicoes:{...}, pontosFortes:[{dimensao,media,label,numQuestoes}], pontosAtencao:[...], riscoPorGrupos:{...} }`
-⚠️ `kpis.balanca` vem **sem `label`** (ver #689).
 
 ### `GET /screens/relatorios/consolidado`
 → `{ periodo:{inicio,fim}, taxaParticipacao:{participantes,total,percentual}, kpis:{bemEstar,risco,balanca}, distribuicoes:{niveisBai,niveisBhs}, casosGraves:[{nome,email,protocolos[]}], resultados:[{colaboradorId,nome,email,linhas[]}] }` *(requisição sem `?periodo=`.)*
@@ -59,9 +58,9 @@ Query: `page`, `limit`. → `{ data:[{id,protocolo,colaboradorEmail,status,criad
 ### `GET /pedidos/lotes` → `[{ protocolo, data, total, atendidos, percentual }]`
 ### `GET /pedidos/adesao` → `[{ protocolo, total, atendidos, percentual }]`
 ### `POST /pedidos` (individual)
-Body: `{ colaboradorId, protocolo }` → **201** · **409** `{message:"Já existe um pedido aberto de <P> para <colab>"}`. *(validação de corpo vazio → 409/undefined; ver #701.)*
+Body: `{ colaboradorId, protocolo }` → **201** · **409** `{message:"Já existe um pedido aberto de <P> para <colab>"}`.
 ### `POST /pedidos/lote` (em lote)
-Body: `{ protocolo }` → cria pedidos para **todos os colaboradores ativos** (ignora quem já tem pedido aberto). *(corpo inválido → 500; ver #701.)*
+Body: `{ protocolo }` → cria pedidos para **todos os colaboradores ativos** (ignora quem já tem pedido aberto).
 
 ## Configurações
 ### `GET /configuracoes`
@@ -71,8 +70,7 @@ Body: `{ protocolo }` → cria pedidos para **todos os colaboradores ativos** (i
 ### `PATCH /configuracoes/visual` — Body `{ logoBase64, corPrincipal }` → **200**
 ### `PATCH /configuracoes/departamentos` — Body `{ departamentos:[] }` → **200**
 ### `PATCH /configuracoes/cargos` — Body `{ cargos:[] }` → **200**
-> ⚠️ As escritas de configuração respondem 200 mas **não persistem** (ver #700).
 
 ## Auditoria
 ### `GET /auditoria`
-Esperado: lista de eventos `{ "Data e Hora", "Usuário", "Ação", "Recurso", "Decisão" }`. **Atual: 403** `{message:"Acesso negado",...}` mesmo com `auditoria.read` (ver #688).
+Retorna a lista de eventos `{ "Data e Hora", "Usuário", "Ação", "Recurso", "Decisão" }` (requer `auditoria.read`).

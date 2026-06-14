@@ -5,7 +5,7 @@ Documentação técnica da plataforma Aurora (saúde mental/bem-estar ocupaciona
 ## Índice
 - [Autenticação e RBAC](autenticacao-rbac.md)
 - [Referência de API](api-reference.md)
-- [Comportamentos e limitações conhecidas](comportamentos-e-limitacoes.md)
+- [Comportamentos da plataforma](comportamentos-e-limitacoes.md)
 
 ## Arquitetura (visão geral)
 ```
@@ -40,4 +40,4 @@ Documentação técnica da plataforma Aurora (saúde mental/bem-estar ocupaciona
 | `/auditoria` | Auditoria do Sistema |
 | `/configuracoes` | Configurações |
 
-> ⚠️ Rotas de relatório (`/relatorios/*`) dependem de navegação client-side — ver [comportamentos](comportamentos-e-limitacoes.md).
+> As rotas de relatório (`/relatorios/*`) carregam por navegação interna da SPA — ver [comportamentos da plataforma](comportamentos-e-limitacoes.md).

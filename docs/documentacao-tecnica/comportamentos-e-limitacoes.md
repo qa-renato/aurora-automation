@@ -1,27 +1,20 @@
-# Comportamentos e limitações conhecidas
+# Comportamentos da plataforma
 
-Notas técnicas observadas (sandbox, 2026-06). Issues no repositório `in-bot/aurora`.
+Notas técnicas úteis para quem integra com a `aurora-api` ou automatiza a SPA.
 
 ## Consistência / dados
-- **Escritas eventualmente consistentes:** após `POST /colaboradores` (201), o registro só fica operável/consultável após um tempo **não determinístico** (~3s a >75s). PUT/DELETE por id dão 404 até propagar. Planejar **retry/polling** em integrações.
-- **Listagem capada em 50:** a tela de Colaboradores carrega só a 1ª página da API e pagina no client — esconde a maioria dos ativos (#698). A API suporta `?page=&limit=` corretamente.
-- **Busca não indexa recém-criados:** `?search=` não retorna registros recém-inseridos por um tempo (#680).
-- **Filtro `?ativo=`** retorna vazio para qualquer valor (#697).
+- **Escritas assíncronas:** após `POST /colaboradores` (201), o registro pode levar alguns instantes para ficar consultável/operável por id. Planeje **retry/polling** em integrações server-to-server.
+- **Paginação:** a API de colaboradores aceita `?page=&limit=` (default `limit=50`). Use os parâmetros para percorrer toda a base.
 
 ## Relatórios
-- **Deep-link/refresh** em `/relatorios/individuais?protocolo=X` é ignorado (abre BAI); a troca de protocolo é por **clique na aba** (estado interno). `/relatorios/consolidado` redireciona para a Home no acesso direto — carregar via navegação client-side (#695).
-- **Contrato BHS divergente:** usa `perguntasBhs` em vez de `perguntas` (#691).
-- **`kpis.balanca` sem `label`** nos relatórios (#689); rótulo de distribuição fixo em "ANSIEDADE" (#696); gráficos barra vs. pizza/rosca divergem do protótipo (#692/#693).
-- **Métricas IA:** a API não retorna dados de variação (% exibido é estático no front) (#687).
+- **Navegação client-side:** as telas de relatório (`/relatorios/*`) carregam por navegação interna da SPA; nos relatórios individuais a troca de protocolo é feita pelas **abas** (BAI/BHS/BDI/BSS).
+- **Contrato BHS:** o protocolo BHS retorna a chave `perguntasBhs:[{numero,descricao,percentualCritico,severidade}]` (os demais usam `perguntas`).
 
-## Escrita
-- **Configuração no-op:** `PATCH /configuracoes/*` responde 200 sem persistir (#700).
-- **Validação fraca em Pedidos:** `POST /pedidos {}` → 409 "undefined"; `POST /pedidos/lote {}` → 500 (deveria 400) (#701).
-- **CPF:** a API valida dígito verificador (`POST` com CPF inválido → 400 "cpf inválido"); o front mostra erro genérico (#683). Importação rejeita CPF inválido com 422 (graceful).
+## Validações
+- **CPF:** a API valida o dígito verificador no cadastro; a importação CSV rejeita linhas com CPF inválido retornando `422` com o detalhe por linha.
 
 ## Autenticação
-- **`GET /auditoria` → 403** apesar de o `/me` conceder `auditoria.read` ao perfil (#688).
-- Token Bearer **não persistido**; renovação por refresh silencioso (cookie Keycloak). Integrações server-to-server devem usar fluxo próprio (service account/direct grant), não o storageState do browser.
+- O token Bearer **não é persistido**; a renovação ocorre por refresh silencioso (cookie de sessão Keycloak). Integrações server-to-server devem usar fluxo próprio (service account / direct grant), não o `storageState` do browser.
 
 ## Cobertura de testes (referência)
-Suíte E2E + contratos de API em `tests/` (Playwright). Camada de API cobre relatórios, RBAC e CRUD de colaboradores/configuracoes/pedidos/tratativa. Telas rodam em modo serial. Ver PR #1.
+Suíte E2E + contratos de API em `tests/` (Playwright). A camada de API cobre relatórios, RBAC e CRUD de colaboradores/configurações/pedidos/tratativa. As telas rodam em modo serial.

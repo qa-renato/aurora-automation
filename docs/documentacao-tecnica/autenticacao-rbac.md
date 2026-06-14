@@ -37,5 +37,3 @@ O acesso é controlado por **capabilities** entregues no `/me`. Cada endpoint ex
 | `kpi.read`, `kpi.casos-graves.read` | Indicadores (dashboard/casos) |
 | `configuracao.read/visual.update/campos.update/provisioning.read` | Configurações |
 | `auditoria.read` | Auditoria |
-
-> ⚠️ Há divergência conhecida: o perfil `direcao` possui `auditoria.read`, mas `GET /auditoria` retorna **403** (ver #688).
