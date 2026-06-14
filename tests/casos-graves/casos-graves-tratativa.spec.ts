@@ -99,14 +99,10 @@ test.describe('Casos Graves — Tratativa', () => {
     expect(await resp.text()).toContain(marca);
   });
 
-  // BUG (descoberto 2026-06-14): o diálogo de Tratativa NÃO fecha — nem pelo
-  // botão X (aria "Fechar"), nem por Esc, nem por clique no overlay (os três
-  // verificados). Fechar é client-side (sem API), então NÃO é o antigo bloqueio
-  // de sessão. test.fail afirma o comportamento correto (deve fechar) → falha
-  // enquanto o bug existir; vira verde sozinho quando corrigido.
-  test.fail('CG25 — deve fechar o diálogo [BUG: diálogo não fecha]', async ({ page }) => {
-    const cg = new CasosGravesPage(page);
-    await cg.fecharDialog();
-    await expect(cg.dialog).toBeHidden({ timeout: 5000 });
-  });
+  // CG25 (fechar o diálogo) NÃO é automatizado: o fechamento FUNCIONA (X e Esc,
+  // confirmado manualmente + screenshot), mas a Tratativa é um drawer que
+  // PERMANECE no DOM ao fechar — `[role="dialog"]` segue com count=1 e
+  // isVisible()=true mesmo fechado, então nenhuma asserção de visibilidade
+  // detecta o fechamento de forma confiável (só geraria flakiness, sem valor).
+  // Verificação de fechamento fica como passo MANUAL.
 });
