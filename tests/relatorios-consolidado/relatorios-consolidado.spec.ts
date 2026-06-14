@@ -69,9 +69,14 @@ test.describe('Resultados Consolidados', () => {
     expect(periodo?.inicio, 'API deve retornar periodo.inicio').toBeTruthy();
     expect(periodo?.fim, 'API deve retornar periodo.fim').toBeTruthy();
     const exibido = await p.getPeriodoExibido();
-    // a faixa mostrada contém as datas reais da API (não um rótulo fixo "30 dias")
-    expect(exibido).toContain(periodo!.inicio!);
-    expect(exibido).toContain(periodo!.fim!);
+    // a tela mostra as datas em BR (dd/mm/aaaa); a API retorna ISO (aaaa-mm-dd).
+    // Convertemos p/ comparar o MESMO dia (não um rótulo fixo "30 dias").
+    const isoParaBR = (iso: string) => {
+      const [y, m, d] = iso.split('-');
+      return `${d}/${m}/${y}`;
+    };
+    expect(exibido).toContain(isoParaBR(periodo!.inicio!));
+    expect(exibido).toContain(isoParaBR(periodo!.fim!));
   });
 
   // BUG #689 — a API retorna `label` de status para bemEstar e risco, mas NÃO

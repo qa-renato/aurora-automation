@@ -74,9 +74,17 @@ export class HomePage extends BasePage {
 
   /** Rótulo de status exibido junto à Balança (ex.: "ATENÇÃO"). '' se ausente. */
   async getBalancaStatus(): Promise<string> {
-    const m = (await this.bodyText()).match(
-      /Balança:\s*Trabalho vs\.\s*Vida\s*[\d.,]+\s*(ATENÇÃO|REGULAR|MODERADO|BOM|RUIM|CRÍTICO|ALTO|BAIXO|ÓTIMO)/i,
-    );
-    return m ? m[1] : '';
+    // o valor numérico vem do gauge (SVG) e pode não estar no fluxo de texto
+    // entre o rótulo e o status → número OPCIONAL (`[\d.,]*`). Os indicadores
+    // carregam de forma assíncrona após o navigate(); fazemos poll do texto.
+    // entre "Vida" e o status há o ícone de ajuda "?" e o valor (ex.: "? 2.70");
+    // usamos um trecho intermediário tolerante (não-guloso) em vez de só dígitos.
+    const re = /Balança:\s*Trabalho vs\.\s*Vida.{0,20}?(ATENÇÃO|REGULAR|MODERADO|BOM|RUIM|CRÍTICO|ALTO|BAIXO|ÓTIMO)/i;
+    for (let i = 0; i < 8; i++) {
+      const m = (await this.bodyText()).match(re);
+      if (m) return m[1];
+      await this.page.waitForTimeout(1000);
+    }
+    return '';
   }
 }
