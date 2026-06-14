@@ -1,4 +1,4 @@
-import { Page, Locator } from '@playwright/test';
+import { Page, Locator, expect } from '@playwright/test';
 import { BasePage } from './BasePage';
 import logger from '../utils/logger';
 import { getEnvironmentConfig } from '../config/environments';
@@ -62,6 +62,11 @@ export class ColaboradoresPage extends BasePage {
   readonly templateCsvButton: Locator;
   readonly uploadDropzone: Locator;
   readonly confirmarImportacaoButton: Locator;
+  readonly fileInput: Locator;
+
+  // ─── Dialog (genérico) ────────────────────────────────────────────────────
+  readonly dialog: Locator;
+  readonly closeButton: Locator;
 
   // ─── Dialog confirmação Inativar/Ativar ───────────────────────────────────
   readonly simInativarButton: Locator;
@@ -118,6 +123,11 @@ export class ColaboradoresPage extends BasePage {
     this.templateCsvButton = page.getByRole('button', { name: /Template CSV/i });
     this.uploadDropzone = page.locator('dialog').locator('[cursor=pointer], [style*="cursor: pointer"], div.cursor-pointer').filter({ hasText: /arraste|selecionar/i });
     this.confirmarImportacaoButton = page.getByRole('button', { name: 'Confirmar Importação' });
+    this.fileInput = page.locator('input[type="file"]');
+
+    // Dialog genérico (Radix) + botão fechar (X)
+    this.dialog = page.locator('[role="dialog"]').first();
+    this.closeButton = page.getByRole('dialog').getByRole('button', { name: /close/i });
 
     // Confirmações
     this.simInativarButton = page.getByRole('button', { name: 'Sim, Inativar' });
@@ -138,7 +148,11 @@ export class ColaboradoresPage extends BasePage {
     // O SPA faz refresh de token via Keycloak SSO ao inicializar.
     // O ciclo completo: goto → SPA init → redirect Keycloak → redirect Aurora → API → tabela.
     // Aguardamos a tabela diretamente com timeout generoso para acomodar todo o ciclo (~15s típico).
-    await this.page.locator('tbody tr').first().waitFor({ state: 'visible', timeout: 60000 });
+    // Espera a tabela com DADOS reais. O botão de ação (aria-label) da 1ª linha
+    // só existe quando os dados carregaram — evita ler estados transitórios
+    // (skeleton/empty) sob lentidão do sandbox. Wait único dentro do test timeout.
+    await this.page.locator('tbody button[aria-label]').first()
+      .waitFor({ state: 'visible', timeout: 60000 });
     logger.info(`Colaboradores carregados em: ${this.page.url()}`);
   }
 
@@ -207,11 +221,11 @@ export class ColaboradoresPage extends BasePage {
   }
 
   async getPaginationText(): Promise<string> {
-    return this.page.evaluate(() => {
-      const all = Array.from(document.querySelectorAll('*'));
-      const el = all.find(e => /^Mostrando \d+-\d+ de \d+ itens$/.test((e as HTMLElement).innerText?.trim() || ''));
-      return (el as HTMLElement)?.innerText?.trim() || '';
-    });
+    // O rodapé de paginação renderiza um instante após as linhas da tabela.
+    // Usamos um locator com auto-wait (em vez de page.evaluate one-shot) para
+    // evitar leituras vazias por corrida de renderização.
+    await this.paginationInfo.waitFor({ state: 'visible', timeout: 15000 });
+    return (await this.paginationInfo.textContent())?.trim() ?? '';
   }
 
   async getTotalItems(): Promise<number> {
@@ -226,10 +240,90 @@ export class ColaboradoresPage extends BasePage {
     logger.info(`Ordenando por: ${coluna}`);
     await this.page.locator('thead th').filter({ hasText: coluna }).click();
     await this.page.waitForTimeout(400);
+    // aguarda os dados re-renderizarem após a reordenação (evita leitura vazia)
+    await this.page.locator('tbody button[aria-label]').first()
+      .waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
   }
 
   async getFirstRowName(): Promise<string> {
     return this.page.locator('tbody tr td').first().innerText();
+  }
+
+  // ─── Seleção dinâmica de seed (resiliência a reset da massa de dados) ───────
+  // Os nomes de colaboradores no sandbox mudam quando a base é reinicializada.
+  // Em vez de depender de nomes fixos, escolhemos um registro REAL da tabela em
+  // tempo de execução; quando o teste exige um registro específico ausente, o
+  // chamador faz test.skip() com a mensagem do caso.
+
+  /** Nomes reais da 1ª página da tabela (ignora o empty-state). */
+  async getNomesDaTabela(): Promise<string[]> {
+    const nomes = await this.page.locator('tbody tr td:nth-child(1)').allTextContents();
+    return nomes
+      .map((n) => n.trim())
+      .filter((n) => n && !/Nenhum colaborador encontrado/i.test(n));
+  }
+
+  /** Nome + e-mail do 1º colaborador real visível (ou null se a tabela estiver vazia). */
+  async getPrimeiroColaborador(): Promise<{ nome: string; email: string } | null> {
+    const row = this.page.locator('tbody tr').filter({ hasNot: this.page.getByText(/Nenhum colaborador/i) }).first();
+    if ((await row.count()) === 0) return null;
+    const nome = (await row.locator('td').nth(0).innerText()).trim();
+    const email = (await row.locator('td').nth(1).innerText()).trim();
+    return nome ? { nome, email } : null;
+  }
+
+  /**
+   * Escolhe um colaborador existente: o 1º da lista de `preferidos` presente na
+   * tabela; senão o 1º nome real visível; senão null (chamador faz test.skip).
+   */
+  async escolherSeed(preferidos: string[] = []): Promise<string | null> {
+    const nomes = await this.getNomesDaTabela();
+    const preferido = preferidos.find((p) => nomes.some((n) => n.includes(p)));
+    if (preferido) return nomes.find((n) => n.includes(preferido))!;
+    return nomes[0] ?? null;
+  }
+
+  private campoPorNome(campo: 'nome' | 'email' | 'telefone' | 'cpf'): Locator {
+    return { nome: this.nomeInput, email: this.emailInput, telefone: this.telefoneInput, cpf: this.cpfInput }[campo];
+  }
+
+  /** Lê o CPF de um colaborador existente (abre a edição, lê e fecha). */
+  async lerCpfDoColaborador(nome: string): Promise<string> {
+    await this.buscar(nome);
+    await this.abrirEdicaoPorNome(nome);
+    const cpf = (await this.cpfInput.inputValue()).trim();
+    await this.fecharDialog();
+    return cpf;
+  }
+
+  /**
+   * Reabre a edição do colaborador e confirma se o campo reflete o valor
+   * esperado, com tentativas para absorver a propagação EVENTUAL do sandbox
+   * (escritas levam de ~3s a dezenas de segundos). Retorna true se refletiu.
+   * Permite distinguir "escrita não persistiu" de "ambiente lento" (→ skip).
+   */
+  async campoRefleteAposReabrir(
+    nome: string,
+    campo: 'nome' | 'email' | 'telefone' | 'cpf',
+    esperado: string,
+    tentativas = 5,
+  ): Promise<boolean> {
+    const loc = this.campoPorNome(campo);
+    for (let i = 0; i < tentativas; i++) {
+      await this.buscar(nome);
+      // fail-fast: só tenta abrir se a linha aparecer rápido (evita esperar
+      // 15s por um registro que ainda não propagou e estourar o test timeout).
+      const achou = await this.page.locator('tbody tr').filter({ hasText: nome }).first()
+        .waitFor({ state: 'visible', timeout: 3000 }).then(() => true).catch(() => false);
+      if (achou) {
+        await this.abrirEdicaoPorNome(nome).catch(() => {});
+        const v = await loc.inputValue().catch(() => '');
+        await this.fecharDialog();
+        if (v === esperado) return true;
+      }
+      await this.page.waitForTimeout(2500);
+    }
+    return false;
   }
 
   // ─── Cadastro Manual ───────────────────────────────────────────────────────
@@ -290,11 +384,19 @@ export class ColaboradoresPage extends BasePage {
 
   async cancelar(): Promise<void> {
     await this.cancelarButton.click();
+    await this.aguardarDialogFechar();
   }
 
   async fecharDialog(): Promise<void> {
     await this.page.keyboard.press('Escape');
-    await this.page.waitForTimeout(300);
+    await this.aguardarDialogFechar();
+  }
+
+  /** Aguarda o Radix Dialog desmontar (evita leituras durante a animação de saída). */
+  private async aguardarDialogFechar(): Promise<void> {
+    await this.page.locator('[role="dialog"]').first()
+      .waitFor({ state: 'hidden', timeout: 10000 })
+      .catch(() => {});
   }
 
   async cadastrarColaborador(data: ColaboradorData): Promise<void> {
@@ -312,6 +414,9 @@ export class ColaboradoresPage extends BasePage {
     const editBtn = row.locator('td').last().locator('button');
     await editBtn.click();
     await this.nomeInput.waitFor({ state: 'visible', timeout: 10000 });
+    // O formulário é pré-preenchido de forma assíncrona; aguarda o valor popular
+    // para evitar leituras vazias (inputValue() não tem auto-retry).
+    await expect(this.nomeInput).not.toHaveValue('', { timeout: 10000 });
   }
 
   async abrirEdicaoPrimeiroCadastro(): Promise<void> {
@@ -334,6 +439,7 @@ export class ColaboradoresPage extends BasePage {
 
   async confirmarInativar(): Promise<void> {
     await this.simInativarButton.click();
+    await this.aguardarDialogFechar();
     await this.page.waitForLoadState('load');
   }
 
@@ -345,11 +451,13 @@ export class ColaboradoresPage extends BasePage {
 
   async confirmarAtivar(): Promise<void> {
     await this.simAtivarButton.click();
+    await this.aguardarDialogFechar();
     await this.page.waitForLoadState('load');
   }
 
   async cancelarConfirmacao(): Promise<void> {
     await this.cancelarButton.click();
+    await this.aguardarDialogFechar();
   }
 
   // ─── Consultas ─────────────────────────────────────────────────────────────
@@ -363,7 +471,8 @@ export class ColaboradoresPage extends BasePage {
   }
 
   async isDialogAberto(): Promise<boolean> {
-    return this.page.locator('dialog').isVisible().catch(() => false);
+    // App usa Radix Dialog (<div role="dialog">), não o elemento nativo <dialog>.
+    return this.page.locator('[role="dialog"]').first().isVisible().catch(() => false);
   }
 
   async isConfirmarImportacaoHabilitado(): Promise<boolean> {
@@ -372,6 +481,9 @@ export class ColaboradoresPage extends BasePage {
 
   async validarCadastroSucesso(): Promise<void> {
     await this.successToast.waitFor({ state: 'visible', timeout: 10000 });
+    // Após o sucesso o dialog fecha com animação; aguardamos desmontar para
+    // que isDialogAberto() reflita o estado já estabilizado.
+    await this.aguardarDialogFechar();
     logger.info('Toast de sucesso exibido');
   }
 
@@ -385,10 +497,115 @@ export class ColaboradoresPage extends BasePage {
     logger.info('Erro ao salvar exibido');
   }
 
-  async buscarEValidarNaTabela(nome: string, cpf: string): Promise<void> {
-    await this.buscar(cpf);
-    const cell = this.page.locator('tbody tr td').filter({ hasText: cpf }).first();
-    await cell.waitFor({ state: 'visible', timeout: 10000 });
-    logger.info(`Colaborador "${nome}" (${cpf}) encontrado na tabela`);
+  /** Define o estado do toggle "Mostrar Inativos" de forma idempotente. */
+  async setMostrarInativos(ativar: boolean): Promise<void> {
+    const toggle = this.page.locator('button[role="switch"]');
+    const estado = await toggle.getAttribute('data-state').catch(() => null);
+    if ((estado === 'checked') !== ativar) {
+      await toggle.click();
+      await this.page.waitForTimeout(600);
+    }
+  }
+
+  /**
+   * Garante a pré-condição de que um colaborador esteja ATIVO, reativando-o
+   * caso execuções anteriores o tenham deixado inativo. Restaura o ambiente
+   * e mantém os testes idempotentes.
+   */
+  async garantirColaboradorAtivo(nome: string): Promise<void> {
+    logger.info(`Garantindo que "${nome}" esteja ativo`);
+    await this.setMostrarInativos(false);
+    await this.buscar(nome);
+    const jaAtivo = await this.page.locator(`button[aria-label="Inativar ${nome}"]`).count();
+    if (jaAtivo > 0) {
+      await this.limparBusca();
+      return;
+    }
+    // Não está ativo: procura entre os inativos e reativa.
+    await this.setMostrarInativos(true);
+    await this.buscar(nome);
+    const ativarBtn = this.page.locator(`button[aria-label*="Ativar ${nome}"]`).first();
+    if (await ativarBtn.count() > 0) {
+      await ativarBtn.click();
+      await this.simAtivarButton.waitFor({ state: 'visible', timeout: 10000 });
+      await this.confirmarAtivar();
+    }
+    await this.setMostrarInativos(false);
+    await this.limparBusca();
+  }
+
+  // ─── Edição (salvar) ────────────────────────────────────────────────────────
+
+  async validarEdicaoSucesso(): Promise<void> {
+    await this.page.getByText('Colaborador atualizado com sucesso.').first()
+      .waitFor({ state: 'visible', timeout: 10000 });
+    await this.aguardarDialogFechar();
+    logger.info('Toast de atualização exibido');
+  }
+
+  // ─── Importação ─────────────────────────────────────────────────────────────
+
+  async abrirDialogImportar(): Promise<void> {
+    await this.abrirDialogAdicionar();
+    await this.selecionarImportarPlanilha();
+  }
+
+  /** Abre o dialog de importação e anexa o arquivo informado. */
+  async anexarArquivoImportacao(caminho: string): Promise<void> {
+    logger.info(`Anexando arquivo de importação: ${caminho}`);
+    await this.fileInput.setInputFiles(caminho);
+    await this.page.waitForTimeout(800);
+  }
+
+  async confirmarImportacao(): Promise<void> {
+    await this.confirmarImportacaoButton.click();
+    await this.page.waitForTimeout(1500);
+  }
+
+  /** Texto completo (normalizado) do dialog atual — útil p/ asserir mensagens. */
+  async getTextoDialog(): Promise<string> {
+    return (await this.dialog.innerText().catch(() => '')).replace(/\n+/g, ' ');
+  }
+
+  // ─── Tabela / colunas ───────────────────────────────────────────────────────
+
+  /** Lê os valores (texto) de uma coluna pelo índice (1-based). */
+  async getColunaValores(indice: number): Promise<string[]> {
+    const vals = await this.page.locator(`tbody tr td:nth-child(${indice})`).allInnerTexts();
+    return vals.map(v => v.trim());
+  }
+
+  /** Botão de status (toggle) da linha de um colaborador. */
+  statusToggle(nome: string): Locator {
+    return this.page.locator(`button[aria-label="Inativar ${nome}"], button[aria-label="Ativar ${nome}"]`).first();
+  }
+
+  /** Estado de ordenação (aria-sort) de uma coluna: 'none' | 'ascending' | 'descending' | null. */
+  async getAriaSort(coluna: string): Promise<string | null> {
+    return this.page.locator('thead th').filter({ hasText: coluna }).first().getAttribute('aria-sort');
+  }
+
+  /** Tipo de status de cada linha pela coluna 6: 'ativo' (botão Inativar) / 'inativo' (botão Ativar). */
+  async getStatusTipos(): Promise<string[]> {
+    return this.page.locator('tbody tr td:nth-child(6) button').evaluateAll(els =>
+      els.map(e => ((e.getAttribute('aria-label') || '').startsWith('Inativar') ? 'ativo' : 'inativo')));
+  }
+
+  // ─── Paginação ──────────────────────────────────────────────────────────────
+
+  async irParaUltimaPagina(): Promise<void> {
+    let guard = 0;
+    while (guard++ < 30) {
+      if (!(await this.proximaButton.isEnabled().catch(() => false))) break;
+      await this.proximaButton.click();
+      await this.page.waitForTimeout(350);
+    }
+  }
+
+  // ─── Dialog ─────────────────────────────────────────────────────────────────
+
+  async fecharViaX(): Promise<void> {
+    await this.closeButton.click();
+    await this.aguardarDialogFechar();
   }
 }

@@ -14,6 +14,10 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 1,
   workers: process.env.CI ? 1 : 2,
+  // O SPA da Aurora faz init via Keycloak SSO + polling de API; a carga da
+  // tabela pode levar dezenas de segundos. O timeout padrão (30s) é menor que
+  // os waits do navigate() — elevamos para evitar "test timeout" durante a carga.
+  timeout: 90_000,
 
   reporter: [
     ['list'],

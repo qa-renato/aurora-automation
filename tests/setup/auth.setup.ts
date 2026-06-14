@@ -52,9 +52,19 @@ setup('autenticar e salvar sessão', async ({ page }) => {
     await page.goto(colaboradoresUrl);
   }
   await page.locator('#username').waitFor({ state: 'visible', timeout: 15000 });
-  await page.locator('#username').fill(credentials.email);
-  await page.locator('#kc-login').click();
-  logger.info('[Keycloak] Sign In clicado — aguardando SSO ou Microsoft');
+
+  // Keycloak (realm stg-inprofile) agora mostra um form NATIVO (username/senha local).
+  // O usuário é FEDERADO (sem senha local) → usar o broker "inbot (microsoft)"
+  // que delega para o Azure AD. Se o broker não existir, cai no #kc-login nativo.
+  const brokerMicrosoft = page.getByRole('link', { name: /microsoft/i });
+  if (await brokerMicrosoft.isVisible().catch(() => false)) {
+    await brokerMicrosoft.click();
+    logger.info('[Keycloak] Broker "inbot (microsoft)" clicado — indo para Azure AD');
+  } else {
+    await page.locator('#username').fill(credentials.email);
+    await page.locator('#kc-login').click();
+    logger.info('[Keycloak] Sign In nativo clicado — aguardando SSO ou Microsoft');
+  }
 
   // 3) Race: ou volta direto para Aurora (SSO Keycloak vivo) ou vai para Microsoft
   await page.waitForURL(
