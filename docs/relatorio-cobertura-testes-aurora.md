@@ -3,15 +3,15 @@
 **Data:** 14/06/2026 · **Ambiente:** Homologação (sandbox) · **Responsável:** QA · **Automação:** Playwright + TypeScript
 
 ## 1. Resumo executivo
-A plataforma conta com **~290 cenários automatizados** em duas camadas: **interface (telas)** e **dados (API)**. Nesta data, **as 11 telas foram revalidadas e estão verdes**. A automação mantém "sentinelas" para cada bug em aberto — que viram verdes automaticamente quando corrigidos — e descobre problemas novos.
+A plataforma conta com **274 cenários automatizados** em duas camadas — **190 na interface (11 telas)** e **68 na API (dados)**, além do radar de deploy e fluxos auxiliares. Nesta data, **as 11 telas foram revalidadas e estão verdes**. A automação mantém "sentinelas" para cada bug em aberto — que viram verdes automaticamente quando corrigidos — e descobre problemas novos.
 
 ## 2. Cobertura por tela (interface)
 
 | Tela | Cenários Automatizados | Status | Bugs Monitorados |
 |------|:---:|:---:|---|
-| Gestão de Colaboradores | 97 | ✅ | — |
-| Pedidos de Protocolo | 38 | ✅ | — |
-| Casos Graves | 18 | ✅ | — |
+| Gestão de Colaboradores | 70 | ✅ | — |
+| Pedidos de Protocolo | 37 | ✅ | — |
+| Casos Graves | 17 | ✅ | — |
 | Relatórios Individuais | 16 | ✅ | #692, #695, #696 |
 | Resultados Consolidados | 10 | ✅ | #689, #692 |
 | Relatório COPSOQ | 9 | ✅ | #689, #692, #693 |
@@ -32,7 +32,7 @@ A plataforma conta com **~290 cenários automatizados** em duas camadas: **inter
 | Configurações (leitura + escrita) | 8 | ✅ | #700 |
 | Casos Graves / Tratativa (status, comentário) | 4 | ✅ | — |
 | Colaboradores — validações (CPF/e-mail/data) | 3 | ✅ | #497, #493 |
-| RBAC / permissões (`/me` × endpoints) | 1 | ✅ | #688 |
+| RBAC / permissões (`/me` × endpoints) | 13 | ✅ | #688 |
 
 ## 4. Bugs em aberto
 Total de **33 issues abertas** no repositório. Destas, **~25 são bugs de produto** (UI/API); as demais são itens de **backend/infra** (3) ou **casos de uso/feature** (5), fora do escopo da automação de interface/API.
